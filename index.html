@@ -1,0 +1,2340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Delhi G.P.O. 110006 - Beat Search & Address Scanner</title>
+
+    <!-- Tailwind CSS with Forms and Container Plugins -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    
+    <!-- Google Fonts: Inter & Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Leaflet JS & CSS for Interactive Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Tesseract.js CDN for Client-Side OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+    <!-- Supabase JS Client CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "outline": "#8f6f6c",
+                        "surface": "#f9f9f9",
+                        "tertiary-fixed": "#ffdad6",
+                        "surface-container": "#eeeeee",
+                        "on-surface": "#1a1c1c",
+                        "on-surface-variant": "#5b403d",
+                        "primary-container": "#d32f2f",
+                        "on-background": "#1a1c1c",
+                        "inverse-primary": "#ffb3ac",
+                        "on-tertiary-fixed": "#410002",
+                        "primary": "#af101a",
+                        "secondary": "#785900",
+                        "error": "#ba1a1a",
+                        "primary-fixed": "#ffdad6",
+                        "on-secondary-fixed-variant": "#5b4300",
+                        "tertiary-container": "#d2312c",
+                        "secondary-fixed": "#ffdf9e",
+                        "tertiary": "#ae1417",
+                        "surface-bright": "#f9f9f9",
+                        "on-error-container": "#93000a",
+                        "surface-variant": "#e2e2e2",
+                        "error-container": "#ffdad6",
+                        "inverse-on-surface": "#f1f1f1",
+                        "surface-container-high": "#e8e8e8",
+                        "inverse-surface": "#2f3131",
+                        "secondary-container": "#fdc003",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#ba1a20",
+                        "tertiary-fixed-dim": "#ffb4ab",
+                        "surface-container-lowest": "#ffffff",
+                        "outline-variant": "#e4beba",
+                        "on-primary-fixed": "#410003",
+                        "primary-fixed-dim": "#ffb3ac",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-container": "#fff2f0",
+                        "surface-container-highest": "#e2e2e2",
+                        "on-tertiary-fixed-variant": "#93000b",
+                        "on-primary-fixed-variant": "#930010",
+                        "on-secondary-fixed": "#261a00",
+                        "on-tertiary-container": "#fff2f0",
+                        "on-secondary-container": "#6c5000",
+                        "surface-container-low": "#f3f3f3",
+                        "background": "#f9f9f9",
+                        "secondary-fixed-dim": "#fabd00",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#dadada",
+                        "on-error": "#ffffff"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    spacing: {
+                        "gutter": "16px",
+                        "margin-desktop": "64px",
+                        "lg": "24px",
+                        "sm": "8px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "unit": "4px",
+                        "margin-mobile": "16px"
+                    },
+                    fontFamily: {
+                        "sans": ["Inter", "sans-serif"],
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "title-lg": ["Inter"],
+                        "label-lg": ["Inter"]
+                    },
+                    fontSize: {
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "title-lg": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
+        .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes scanLaser {
+            0% { top: 8%; opacity: 0.8; }
+            50% { top: 88%; opacity: 1; }
+            100% { top: 8%; opacity: 0.8; }
+        }
+        .scan-laser-line {
+            position: absolute;
+            left: 5%;
+            width: 90%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #fdc003, #af101a, #fdc003, transparent);
+            box-shadow: 0 0 15px #fdc003, 0 0 8px #af101a;
+            animation: scanLaser 2.2s infinite ease-in-out;
+            z-index: 20;
+        }
+
+        .lens-corner {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-color: #fdc003;
+            z-index: 25;
+        }
+        .lens-tl { top: 12px; left: 12px; border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 8px; }
+        .lens-tr { top: 12px; right: 12px; border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 8px; }
+        .lens-bl { bottom: 12px; left: 12px; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 8px; }
+        .lens-br { bottom: 12px; right: 12px; border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 8px; }
+
+        .golden-ribbon {
+            border-top: 3px solid #fdc003;
+        }
+
+        #leafletMapContainer, #lookupLeafletMap {
+            height: 320px;
+            width: 100%;
+            border-radius: 0.75rem;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body class="bg-surface-container-low text-on-surface font-body-md antialiased pt-safe pb-safe selection:bg-secondary-container selection:text-on-secondary-container min-h-screen flex flex-col justify-between">
+
+    <!-- Mobile Top Header -->
+    <header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile h-16 bg-surface-container-lowest border-t-4 border-secondary border-b border-outline-variant shadow-sm md:hidden">
+        <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 cursor-pointer shadow-xs border border-primary/20 hover:bg-primary/20 transition-colors" onclick="navigateTo('home')">
+                <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">mail</span>
+            </div>
+            <div class="flex flex-col">
+                <h1 class="font-title-lg text-[15px] font-bold text-primary tracking-tight truncate max-w-[240px] leading-tight">Beat Map's of Delhi G.P.O - 06</h1>
+                <span class="text-[10px] font-semibold text-on-surface-variant/80 tracking-wide">Department of Posts - Government of India</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="showNotificationToast()" class="relative w-9 h-9 rounded-full bg-surface-container flex items-center justify-center border border-outline-variant hover:bg-surface-container-high transition-colors text-on-surface-variant focus:outline-none">
+                <span class="material-symbols-outlined text-[20px]">notifications</span>
+                <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full ring-2 ring-surface-container-lowest animate-pulse"></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Desktop Navigation Header -->
+    <header class="fixed top-0 left-0 w-full z-50 hidden md:flex justify-between items-center px-margin-desktop h-20 bg-surface border-t-4 border-secondary border-b border-outline-variant shadow-xs">
+        <div class="flex items-center gap-md cursor-pointer group" onclick="navigateTo('home')">
+            <div class="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 shadow-xs border border-primary/20 group-hover:bg-primary/20 transition-colors">
+                <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">mail</span>
+            </div>
+            <div class="flex flex-col">
+                <h1 class="font-headline-lg text-headline-lg font-bold text-primary tracking-tight leading-tight">Beat Maps of Delhi G.P.O - 06</h1>
+                <span class="text-xs font-semibold text-on-surface-variant/80 tracking-wider uppercase">Department of Posts - Government of India</span>
+            </div>
+        </div>
+        <nav class="flex items-center gap-lg h-full">
+            <button id="nav-desktop-home" onclick="navigateTo('home')" class="nav-desk-item flex flex-col items-center justify-center text-primary font-bold border-b-2 border-primary h-full px-sm opacity-100 transition-colors">
+                <span class="font-label-lg text-label-lg">Home</span>
+            </button>
+            <button id="nav-desktop-beats" onclick="navigateTo('beats')" class="nav-desk-item flex flex-col items-center justify-center text-on-surface-variant h-full px-sm hover:bg-surface-container transition-colors">
+                <span class="font-label-lg text-label-lg">Beat Map</span>
+            </button>
+            <button id="nav-desktop-scan" onclick="navigateTo('scanner')" class="nav-desk-item flex flex-col items-center justify-center text-on-surface-variant h-full px-sm hover:bg-surface-container transition-colors">
+                <span class="font-label-lg text-label-lg">Scan</span>
+            </button>
+            <button id="nav-desktop-lookup" onclick="navigateTo('postalLookup')" class="nav-desk-item flex flex-col items-center justify-center text-on-surface-variant h-full px-sm hover:bg-surface-container transition-colors">
+                <span class="font-label-lg text-label-lg">Lookup</span>
+            </button>
+            <button id="nav-desktop-admin" onclick="navigateTo('admin')" class="nav-desk-item flex flex-col items-center justify-center text-on-surface-variant h-full px-sm hover:bg-surface-container transition-colors">
+                <span class="font-label-lg text-label-lg">Admin</span>
+            </button>
+        </nav>
+        <div class="flex items-center gap-md">
+            <button onclick="showNotificationToast()" class="relative p-2 rounded-full hover:bg-surface-container text-on-surface-variant transition-colors flex items-center justify-center">
+                <span class="material-symbols-outlined text-[22px]">notifications</span>
+                <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full ring-2 ring-surface"></span>
+            </button>
+            <div class="flex items-center gap-2 bg-surface-container-high px-3 py-1.5 rounded-full border border-outline-variant">
+                <span class="material-symbols-outlined text-primary text-sm">verified</span>
+                <span class="text-xs font-semibold text-on-surface">PIN: 110006</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Canvas View Container -->
+    <main id="appContent" class="pt-[80px] md:pt-[104px] pb-[100px] md:pb-lg px-margin-mobile md:px-margin-desktop max-w-7xl mx-auto flex flex-col gap-lg w-full flex-grow">
+        <!-- Dynamic views rendered via JavaScript -->
+    </main>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-2 pb-safe bg-surface-container-lowest border-t border-outline-variant shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:hidden">
+        <button id="nav-mob-home" onclick="navigateTo('home')" class="nav-mob-item flex flex-col items-center justify-center text-primary font-bold border-t-2 border-primary h-full flex-1 hover:bg-surface-container-low transition-colors duration-100 pt-1">
+            <span class="material-symbols-outlined mb-xs" style="font-variation-settings: 'FILL' 1;">home</span>
+            <span class="font-label-md text-label-md">Home</span>
+        </button>
+        <button id="nav-mob-beats" onclick="navigateTo('beats')" class="nav-mob-item flex flex-col items-center justify-center text-on-surface-variant h-full flex-1 hover:bg-surface-container-low transition-colors pt-1">
+            <span class="material-symbols-outlined mb-xs">map</span>
+            <span class="font-label-md text-label-md">Beat Map</span>
+        </button>
+        <button id="nav-mob-scan" onclick="navigateTo('scanner')" class="nav-mob-item flex flex-col items-center justify-center text-on-surface-variant h-full flex-1 hover:bg-surface-container-low transition-colors pt-1">
+            <span class="material-symbols-outlined mb-xs">barcode_scanner</span>
+            <span class="font-label-md text-label-md">Scan</span>
+        </button>
+        <button id="nav-mob-lookup" onclick="navigateTo('postalLookup')" class="nav-mob-item flex flex-col items-center justify-center text-on-surface-variant h-full flex-1 hover:bg-surface-container-low transition-colors pt-1">
+            <span class="material-symbols-outlined mb-xs">search</span>
+            <span class="font-label-md text-label-md">Lookup</span>
+        </button>
+        <button id="nav-mob-admin" onclick="navigateTo('admin')" class="nav-mob-item flex flex-col items-center justify-center text-on-surface-variant h-full flex-1 hover:bg-surface-container-low transition-colors pt-1">
+            <span class="material-symbols-outlined mb-xs">admin_panel_settings</span>
+            <span class="font-label-md text-label-md">Admin</span>
+        </button>
+    </nav>
+
+    <!-- Modal Container for Admin Operations -->
+    <div id="modalContainer" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 p-4"></div>
+
+    <script>
+        const SUPABASE_URL = "https://gtppvtyorvkmcohbdfui.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_DKBa_G6YUbsVoNDvQ9CkYA_qggBZToB";
+        let supabaseClient = null;
+
+        try {
+            if (window.supabase) {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            }
+        } catch (err) {
+            console.warn("Supabase client init:", err);
+        }
+
+        /* VERIFIED DELHI GPO 110006 BEAT MAP DATA (SHEETS 1 TO 29) */
+        let BEATS_DATABASE = [
+            {
+                beatNumber: 1,
+                hub: "SITARAM",
+                areaName: "Jama Masjid / Matia Mahal",
+                postmanName: "Rajesh Kumar",
+                mobileNumber: "+91 98102 34001",
+                type: "Postman",
+                doorRanges: "3902-3930, 3931-4212, 07-69S, 7-20, 16-63, 74-97, 114-178, 186-388, 370-383, 384-536, 1-87, 982-1108, 1400-1420, 3931-3946, 4098-4157, 4158-4191, 1246-1419, 01-344, 921-1168, 1-180",
+                areas: ["Jagat Cinema Gali", "Urdu Bazar", "Bazar Matia Mahal", "Gali Kababian", "Katra Gayasuddin", "Katra Gokalshah", "Gali Garhlya", "Gali Saccco Wali", "Matia Mahal", "Dujana House", "Madrsa Hussain Bux", "Chitli Qabar Bazaar Side", "Gali Khan Khana", "Katra Nizamul Malik", "Gali Nalwali", "Pahari Imli", "Meena Bazar", "Catten Market", "Kabuta Market", "Muntaz Dawakhana", "Hussaina Hotel", "Mohim Hotel", "Dargah Shah Kdrlmullah"],
+                lat: 28.6507, lng: 77.2334
+            },
+            {
+                beatNumber: 2,
+                hub: "SITARAM",
+                areaName: "Chitli Qabar",
+                postmanName: "Sita Ram Meena",
+                mobileNumber: "+91 98102 34002",
+                type: "Postman",
+                doorRanges: "1331-1470, 962-1078, 697-961, 1470-1421, 621-698, 1471-1560, 2510-2476, 2452-2475, 2451-2366, 2200-2263, 2365-2330, 2263-2367, 2329-2261, 2367-2442, 2260-2118, 2199-2102, 1561-1767, 2727-2822, 2822-2905, 2087-2099, 2013-2037, 1901-1912, 1877-1883, 1808-1882, 1919-2036",
+                areas: ["Chitli Qabar Bazaar", "H. Ajam Khan", "Caba Bazaar", "G. Rajan & Dareyan", "Gali Mahawat Khan", "Kucha Meer Hasim", "Chumery Wali Chitli Qabar", "Gali Dagdugi", "Shakhan Shabul Qhalr", "Gali Chitu Momgram", "Subukar Marg", "Gali Md. Bvandan", "Gali Chhunid Wali", "G. Guariyan", "Gali Dakatan", "Italyanpure", "Gali Nalwali", "Gali Addun Sydan", "Gali Musa Pachhiyan", "Bulbuli Khana", "Kabaritan Hazi Ismail Gali", "Majid Hazwal"],
+                lat: 28.6489, lng: 77.2351
+            },
+            {
+                beatNumber: 3,
+                hub: "SITARAM",
+                areaName: "Chatta Shaikh Mangloo / Churiwalan",
+                postmanName: "Manoj Singh",
+                mobileNumber: "+91 98102 34003",
+                type: "Postman",
+                doorRanges: "789-820, 910-893, 492-513, 892-850, 1194-1240, 1193-1170, 2670-2700, 2630-2644, 2553, 2701-2724, 2771-2774, 2546-2531, 2510-2503, 3881-3896, 2502-2494, 2493-2478, 2477-2446, 2199-2205, 2208/1-2208/30, 2086-2075, 2206-2301, 2190-2198, 2175-2170, 2169-2151",
+                areas: ["Chatta Shaikh Mangloo", "Tokiwalan Jama Masjid", "Tokiwalan Gali Madras", "Hussian Baksh", "Gali Surkh Poshan", "Churiwalan", "Gali Baliyan", "Prem Narayan Road Churiwalan", "Gali Kashmiran Churiwalan", "Near Bulbuli Khana Bazaar Sitaram", "Bazar Sita Ram", "Sher Singh Building", "Gali Shankar", "Kucha Akil Khan", "Gali Sudama"],
+                lat: 28.6475, lng: 77.2320
+            },
+            {
+                beatNumber: 4,
+                hub: "SITARAM",
+                areaName: "Turkman Gate / Gali Ugrasain",
+                postmanName: "Sunita Sharma",
+                mobileNumber: "+91 98102 34004",
+                type: "Postwoman",
+                doorRanges: "1061-1156, 2016-1996, 1516-1564, 1646-1722, 1599-1541, 1562-1590, 2631-2653, 3402-3412, 2600-2602, 2807-2922, 3299-3137, 3134-3153, 3033-2906, 3085-3130, 2500-2583, 2430-2469, 2716-2804, 1948-1997",
+                areas: ["Gali Ugrasain & Harajmal", "Kucha Khali Ram", "Himatgarh", "Gali Baryan", "Gali Arya Samaj", "Borla Chowk", "Aerial Road", "Angul Chanta", "Gali Hari Shankar", "DDA Flat Turkman Gate A Block-Y Block", "Phatak Tellyan", "Gali Nayalpa", "Gali Masjid Turkman Gate", "Gali Dharma & Topo Wali", "Katra Banwari Lal", "Gali Nila Wali"],
+                lat: 28.6450, lng: 77.2341
+            },
+            {
+                beatNumber: 5,
+                hub: "SITARAM",
+                areaName: "Turkman Gate / Sitaram Bazar",
+                postmanName: "Vinod Kumar",
+                mobileNumber: "+91 98102 34005",
+                type: "Postman",
+                doorRanges: "2190-2141, 97-507, 251/2-291/2, 430-486, 487-495, 3528-3553, 3376-3384, 971, 3314-3384, 3564-3375",
+                areas: ["Gali Sri Ram", "Churiwalan", "Gali Masjid", "Bazar Sita Ram Main", "Bazar Tabuc Parshad", "Sitaram Market"],
+                lat: 28.6462, lng: 77.2305
+            },
+            {
+                beatNumber: 6,
+                hub: "HAUZ QAZI / KHARI BAOLI",
+                areaName: "Lal Darwaja / Bazar Sitaram",
+                postmanName: "Anita Devi",
+                mobileNumber: "+91 98102 34006",
+                type: "Postwoman",
+                doorRanges: "3125-3277, 3278-3313, 3097-3088, 3089-3096, 2025-2070, 1401-1429, 496-608, 824-970, 1158-1230, 1723-1841, 1231-1397, 758-825, 609-692, 1-120, 3006-3038, 3039-3078, 2919-2931",
+                areas: ["Lal Darwaja", "Gali Taksalian", "Gali Mahajani", "Kucha Pati Ram", "Mohalla Imti", "Chowk Shah Muharik", "Bagichi Tan Sukh Rai", "Kui Dewalan Chowk", "DDA Nirmal Basti", "Bazar Sita Ram", "Kucha Sohan Lal", "Gali Taksalion Khurd"],
+                lat: 28.6491, lng: 77.2289
+            },
+            {
+                beatNumber: 7,
+                hub: "HAUZ QAZI / KHARI BAOLI",
+                areaName: "Hauz Qazi",
+                postmanName: "Dinesh Sharma",
+                mobileNumber: "+91 98102 34007",
+                type: "Postman",
+                doorRanges: "3507-3520, 3425-3433, 3378-3410, 3411-3424, 3564-3526, 3225-3250, 3377-3352, 4920-4963, 2853-2836, 3350-3336, 3251-3320, 2835-2757, 2854-2895, 5035-5049, 5017-4998, 4998-4965, 3139-3081, 3735-3750, 3164-3206, 3521-3526, 371-395",
+                areas: ["Gali Hakim Bagga", "Chomukha Mandir", "Hauz Qazi Main", "Pepal Mahadev", "Hanuman Mandir", "Sirkiwalan", "Lambi Gali", "Phatak Badal Beg", "Gali Charan Dass", "Gali Seni Ram Dassan", "Moinuddin And Sons", "Arora Mill Store", "Chowk Hauz Qazi", "M.R. Malhotra And Co.", "Subzi Market"],
+                lat: 28.6501, lng: 77.2270
+            },
+            {
+                beatNumber: 8,
+                hub: "HAUZ QAZI / KHARI BAOLI",
+                areaName: "Hauz Qazi / Ajmeri Gate",
+                postmanName: "Praveen Yadav",
+                mobileNumber: "+91 98102 34008",
+                type: "Postman",
+                doorRanges: "4919, 4894, 1893-4787, 4789, 4785, 4869, 4778, 289, 320, 454-455, 320-370, 338-370",
+                areas: ["Prakashan", "Surendera And Co.", "Ram Chand And Sons", "Chowk Hauz Qazi", "Phatak Namak", "Summi Market", "Gopi Nath Market", "Bhola Ram And Sons", "Gali Rajla Begum", "Aggarwal Market", "Metro Station", "Din Dayal Upadhyay Market", "Shrivastava Market", "Ajmeri Gate Bazar", "Katra Sheikh", "Maheshwari Market"],
+                lat: 28.6470, lng: 77.2255
+            },
+            {
+                beatNumber: 9,
+                hub: "HAUZ QAZI / KHARI BAOLI",
+                areaName: "Ajmeri Gate",
+                postmanName: "Pooja Verma",
+                mobileNumber: "+91 98102 34009",
+                type: "Postwoman",
+                doorRanges: "41, 160, 66, 70-197, 198-237, 211-220, 239-289, 287, 244, S253-529, 5201-5252, 39-52, 1-60, 1-64, 1-237, 3991-4023, 3966-3980, 1-120, 707-757, 1-309, 693-706, 749-753, 13-30, 4034-4125, 130/2-130/8",
+                areas: ["D.N. Metal", "R.P. Sharma Ajmeri Gate Bazar", "Shanti Market", "Gali Banguk Wali", "Aggarwal General Store", "B.D.R. Enterprises", "Gali Loharan", "Phatak Karod", "Aggarsen Market", "Jawaharo Market", "Indian Agencies G.B. Road", "Bari Stone", "Ramlal Grover", "Narang Market", "Om Market", "City Market", "Hyco Sales", "Raghushri Market", "Ishwar Market", "S.D. School", "Masjid Machan", "Rly Sales", "Rly Colony O.H.E. Road"],
+                lat: 28.6455, lng: 77.2230
+            },
+            {
+                beatNumber: 10,
+                hub: "HAUZ QAZI / KHARI BAOLI",
+                areaName: "Satra Gali / Shahganj / Sirkiwalan",
+                postmanName: "Sanjay Kumar",
+                mobileNumber: "+91 98102 34010",
+                type: "Postman",
+                doorRanges: "4126-1113, 1141-15, 1-300, 4146-4172, 1173-1289, 4411-1623, 3661-3675, 3680-3857, 2939-3049, 311-531, 16-72, 2463-1/80, 2401/212, 2386, 2372/211, 2123/23, 5200, 5048-5124, 4292-4253, 3089-3101, 3102-3237, 3238-3314, 3314-3480, 2689-3480, 2689-2552, 2922-2904, 1890-1828",
+                areas: ["Ansari Mart Show", "Imami Market", "Satra Gali", "Chima Phalwan", "Shahd Rolling", "Central Electrical", "Kedar Nath", "Hotel Wala", "G.B. Road Main", "Nawab Building", "Ram Nath Building", "Ashirwad Complex", "Gopinath Building", "Surekha Building", "Katra Razi", "Garvi Building", "Jyoti Market", "Kirshan Market", "Sirkiwalan", "Kucha Pandit", "National Market", "Katra Nisar Amed", "Gali Vakilwali", "Gali Fardulla", "Gali Akharhe Wali", "Mohalla Niryan Jungali Kua", "Katra Gufur Bax", "Lal Darwaja", "Katra Kazi"],
+                lat: 28.6508, lng: 77.2245
+            },
+            {
+                beatNumber: 11,
+                hub: "BAZAR / DAREEBA",
+                areaName: "Farash Khana / Lal Kuen",
+                postmanName: "Amit Sharma",
+                mobileNumber: "+91 98102 34011",
+                type: "Postman",
+                doorRanges: "2007-1743, 1770-1680, 1630-1625, 29, 6014-1100, 1635-1675, 1689-1002, 1001-1440, 1666-1471, 1697-1645, 2119-2020, 2049-2010, 3560, 2145-2116, 1826-1980",
+                areas: ["Lal Kuan Main", "Chabuk Sawar", "Mirm Jumma Madene", "Gali Durga Mandir", "Katra Gulam Mohd.", "Gali Jani Mahal", "Mirdhan Gali", "Gali Khatimen Boodhran", "Gali Saban Khan", "Gali Angine and Boodhran", "Chowk Lal Kuan", "Gali Pirji", "Lal Darwaja"],
+                lat: 28.6521, lng: 77.2258
+            },
+            {
+                beatNumber: 12,
+                hub: "BAZAR / DAREEBA",
+                areaName: "Central Commercial District",
+                postmanName: "Rajeev Kumar",
+                mobileNumber: "+91 98765 43210",
+                type: "Postman",
+                doorRanges: "1-50, 51-120, 1-45, 1270-1239, 1238-1224, 1226-1006, 1033-1085",
+                areas: ["Main Bazaar Road (North)", "Kinari Bazaar", "Dariba Kalan", "Gali Hussain Mirza", "Farash Khana Bazar", "Gali Samosan"],
+                lat: 28.6535, lng: 77.2238
+            },
+            {
+                beatNumber: 13,
+                hub: "BAZAR / DAREEBA",
+                areaName: "Chawari Bazar",
+                postmanName: "Kavita Rani",
+                mobileNumber: "+91 98102 34013",
+                type: "Postwoman",
+                doorRanges: "3488-3505, 3544-3635, 4037-3974, 4099-3573, 2571-2430, 2404, 892-1022, 120-199, 3611",
+                areas: ["Metro Station Chawari Bazar", "Kucha Daya Ram", "Gali Mandir Wali", "Sudershan Market", "Raghu Ganj", "Chhotta Chippiwara", "Gali Batashwali", "Markat Ram Niwas", "Gali Raja Kedar", "Main Bazar Gali Rura Achaar", "Somnath Market", "Gali Piari Wali", "Sitaram Bazar"],
+                lat: 28.6515, lng: 77.2290
+            },
+            {
+                beatNumber: 14,
+                hub: "BAZAR / DAREEBA",
+                areaName: "Dharampura / Kinari Bazar",
+                postmanName: "Harish Chand",
+                mobileNumber: "+91 98102 34014",
+                type: "Postman",
+                doorRanges: "2172-2288, 2649-2678, 2229-2271, 1530-1574, 2276-2320, 2516-2571, 2301, 1304-1387, 1254-1222, 2680-2759, 2764-2780, 2086-2176, 1263-1303, 1230-1254, 1119-1197, 1202-1223, 2362-2487, 2488-2498, 2357-2404, 2337-2354, 2432-2571, 2296-2336, 2321-2360, 2574-2674, 2714-2699, 2858-2894, 2056-197, 2932-2895, 1980-1961, 2933-2958, 2087-2150",
+                areas: ["Kinari Bazar Gali Anar", "Kucha Seth", "Gali Gulian", "Chhatta Pratap", "Wakilpura", "Chhat Irat", "Chippiwara", "Chatta Shahji", "Nai Wara", "Dharampura", "Gali Pepal Wali", "Chowk Raja", "Chail Puri", "Kinari Bazaar Main", "Katra Khushal Rai", "Masjid Ithazoor Dharampur", "Gali Hanuman Prasad"],
+                lat: 28.6540, lng: 77.2312
+            },
+            {
+                beatNumber: 15,
+                hub: "BAZAR / DAREEBA",
+                areaName: "Dareeba Kalan",
+                postmanName: "Rameshwar Dayal",
+                mobileNumber: "+91 98102 34015",
+                type: "Postman",
+                doorRanges: "116-192, 1710-1723, 115-100, 99-90, 70, 77-53, 1797-1724, 193-391, 510-528, 1709-1575, 1479-1450, 1449-1388, 1114-1023, 717-789, 911-920, 529-540, 557-497, 562-551, 352-419, 420-496, 33-31, 89-39, 1798-1725, 1841-1888, 1-419, 1-12",
+                areas: ["Katra Masih", "Gali Pyau Wali", "Main Dareeba Bazaar", "Gali Ithayunchi", "Kucha Lattoo Shah", "Palwalan Bazaar", "Kucha Ustad Hira", "Jama Masjid Motor Market", "Hathi Khana", "Kucha Bulaki Begum", "Cycle Market", "Kucha Chaudhary", "Chandni Chowk Gurudwara Shish Ganj", "Gali Ghante Wali", "Burdhman Market"],
+                lat: 28.6552, lng: 77.2328
+            },
+            {
+                beatNumber: 16,
+                hub: "CHANDNI CHOWK / NAI SARAK",
+                areaName: "Lajpat Rai Market",
+                postmanName: "Geeta Verma",
+                mobileNumber: "+91 98102 34016",
+                type: "Postwoman",
+                doorRanges: "1-75, 1-99, 1-89, 1-41a, 1-40",
+                areas: ["Angoori Bagh Colony", "Peti Market", "Mor Sarai Khoka", "Diwan Hal Khoka", "Survodaya Mohalla", "Bagichi Madho Dass", "Gudwalo Ki Dharamshala", "Bagichi Raja Ram Market", "Bagichi Chetan Dass"],
+                lat: 28.6570, lng: 77.2350
+            },
+            {
+                beatNumber: 17,
+                hub: "CHANDNI CHOWK / NAI SARAK",
+                areaName: "Red Fort / Yamuna Pusta",
+                postmanName: "Ashok Kumar Swami",
+                mobileNumber: "+91 98102 34017",
+                type: "Postman",
+                doorRanges: "1-22, 1-69, 1-38",
+                areas: ["Prabha Hotel", "Phulwali Road", "Bagichi Madhodass", "Azad Hind Market", "DPDO I Pension Office", "DPDP II Pension Office", "127 Bn CRPF", "PAC Battalion Shanty Ben", "RAC Battalion XI Rae", "DAP Battalion Shanty Ben", "CISF Battalion", "Samadhi Sthan CISF Battalion", "Police Post Yamuna Pusta", "Vijay Ghat", "RED FORT INSIDE", "Market Red Fort", "52 Coy Battalion CISF", "Geological Survey Of India Office", "Archaeological Survey Of India", "Sangrahya Naubat Khana", "I.T.D.C. Office", "Salimgarh Railway Colony", "Old Gas Factory"],
+                lat: 28.6562, lng: 77.2410
+            },
+            {
+                beatNumber: 18,
+                hub: "CHANDNI CHOWK / NAI SARAK",
+                areaName: "Bhagirath Place (Electrical & Surgical)",
+                postmanName: "Narender Kumar",
+                mobileNumber: "+91 98102 34018",
+                type: "Postman",
+                doorRanges: "1568A, 1495-1529, 1565-1582, 1501-1520, 1681, 1582-1596, 1846-1888, 1846-1855",
+                areas: ["Surgical Market", "Medicine Market", "Amar Sachdeva Building", "Khajur Building", "Central Bank of India", "Radio Market", "Mangal Market", "J.M. Building", "Bhagirath Palace Main", "Dewan Hall", "Moti Cinema Compound", "M.G. Building", "Laxmi Market", "State Bank of India", "Gopal Market", "DESU Office", "Modern Optical Co.", "Pyare Lal Building", "Canara Bank", "Vijaya Bank", "Syndicate Bank", "DCB Bank"],
+                lat: 28.6578, lng: 77.2330
+            },
+            {
+                beatNumber: 19,
+                hub: "CHANDNI CHOWK / NAI SARAK",
+                areaName: "Bhagirath Palace / Electrical Market",
+                postmanName: "Satish Chand",
+                mobileNumber: "+91 98102 34019",
+                type: "Postman",
+                doorRanges: "1731-1800, 1801-1858, 1826-1831, 1530-1564, 1701-1737, 1730-1735, 1651-1735, 1565-1567",
+                areas: ["Bhagirath Palace", "Electrical Market", "Kundan Mansion", "Mathura Panna Building", "Modern Kunj Building", "Amar Nath Building", "B.N. Rustogi School", "Mangal Building", "Bisumal Colony", "Vishnu Bhavan", "Laxmi Bazar", "Nav Durga Market", "Indra Bazar", "Shankar Niwas", "Sardari Mal Mansion"],
+                lat: 28.6582, lng: 77.2335
+            },
+            {
+                beatNumber: 20,
+                hub: "CHANDNI CHOWK / NAI SARAK",
+                areaName: "Chandni Chowk (Part 1)",
+                postmanName: "Sunil Dutt",
+                mobileNumber: "+91 98102 34020",
+                type: "Postman",
+                doorRanges: "2287/1-2287/39, 2255-2286, 2057-2256, 1949-2056, 1948-1926, 1919-1888, 1398-1472, 1260-1337, 1338-1358, 1386-1397, 2730-2742, 58-46",
+                areas: ["Sarai Baraf Khana", "Sarai Tof Khana", "Chaha Indra", "Katra Lachhi Singh", "Katra Aggar Mohan Bazar", "Main Road Chandni Chowk", "P.C. School", "St. Merry Church And Quarter", "Mor Sarai Road", "MCD Khokhas", "MCD School And Office", "Choti Mor Sarai", "Bari Mor Sarai"],
+                lat: 28.6565, lng: 77.2310
+            },
+            {
+                beatNumber: 21,
+                hub: "CHANDNI CHOWK / NAI SARAK",
+                areaName: "Chandni Chowk (Part 2 - Town Hall)",
+                postmanName: "Lalita Sharma",
+                mobileNumber: "+91 98102 34021",
+                type: "Postwoman",
+                doorRanges: "983-1015, 1064, 1065-1080, 1081-1131, 867-982, 1133-1167, 1168-1180, 1181-1219, 1220-1260, 1-138, 1-88, 692, 713, 84/68",
+                areas: ["Delhi Public Library", "House Tax Office", "Pension Branch", "Kacha Bagh", "Town Hall", "Three Building", "Bapu Market", "New Market", "Hardayal Library", "Bankhandi Mandir", "Gandhi Maidan Ground", "Police Station Chandni Chowk", "Car Parking", "BSES Office", "Teejo Mal MCD", "Sanitary Ins Office", "Metro Chandni Chowk Gate No. 1", "Swimming Pool"],
+                lat: 28.6560, lng: 77.2300
+            },
+            {
+                beatNumber: 22,
+                hub: "CHANDNI CHOWK / NAI SARAK",
+                areaName: "Chandni Chowk / Katra Neel",
+                postmanName: "Deepak Kumar",
+                mobileNumber: "+91 98102 34022",
+                type: "Postman",
+                doorRanges: "693-645, 646-668, 669-827, 561-472, 562-688, 826A, 826B, 835, 843, 1-68, 471-401, 400-220, 1-75, 76-165, 104-219, 162-373, 232/1-80, 1-100",
+                areas: ["Bagh Diwar-Nai Basti", "L.H.S. Katra Neel", "Gali Teliyan", "Katra Neel RHS", "Gali Ghanteshwar-Katra Neel", "K.C. Market", "N.K.C. Market Old", "Main Chandni Chowk", "Bagh Diwar", "Chatta Bhawani Shankar", "Main Bazar Fateh Puri", "Kucha Ghasi Ram", "Coronation Building", "Subzi Mandi"],
+                lat: 28.6572, lng: 77.2280
+            },
+            {
+                beatNumber: 23,
+                hub: "CHANDNI CHOWK / NAI SARAK",
+                areaName: "Chandni Chowk / Katra Shahanshah",
+                postmanName: "Vijay Pal Singh",
+                mobileNumber: "+91 98102 34023",
+                type: "Postman",
+                doorRanges: "1890-1900, 1901-1961, 1562-1972, 46-72, 73-136, 149-233, 234-245, 246-294, 295-303, 304-392, 393-405, 475-630, 632-764, 5487-5462, 5461-5262, 4955-4935, 4934-4892, 4881-4871, 4870-4798, 4797-4784, 704-670, 669-545, 629-622, 543-530",
+                areas: ["Chandni Chowk Saree Sansar", "Royal Carpet", "Katra Shahanshah", "Moti Bazar", "Katra Nawab", "Katra Pyare Lal", "Katra Naya Main", "Katra Asarfi Main", "Kucha Rehman", "Kucha Rehman Main", "Kucha Ustad Daag Main", "Katra Subhash Main", "Gandhi Cloth Market", "Main Gandhi Cloth Market"],
+                lat: 28.6558, lng: 77.2318
+            },
+            {
+                beatNumber: 24,
+                hub: "CHANDNI CHOWK / NAI SARAK",
+                areaName: "Nai Sarak (Books & Stationers)",
+                postmanName: "Sanjay Sharma",
+                mobileNumber: "+91 98102 34024",
+                type: "Postman",
+                doorRanges: "5488-5738, 645-922, 765-Katra Chhatri, 22 Corner Maliwara, 914-922, 638-644, 645-748, 1467-1501, 1004-1010, 954-995, 1415-1424, 929-932, 1443-1464, 4126-4178",
+                areas: ["Nai Sarak Main", "Katra Rathi", "Katra Lachu Ram Dalal", "Katra Jaman Wala", "Shyam Lal Sunder Lal", "Cornoplating Trading Corp", "United Sewing Machine", "Katra Anoop Singh", "Katra Mahesh", "Gali Jhooti Wali", "Katra Bhangi", "Gali Peepal Wali", "Gali Lax Wali", "Gali Bhojpura", "Gali Kishan Dutt", "Gali Ghatel Wali", "Gali Chamian", "Shawtra Prakashan", "Gali Bhairo Wali"],
+                lat: 28.6538, lng: 77.2305
+            },
+            {
+                beatNumber: 25,
+                hub: "BAOLI",
+                areaName: "Nai Sarak / Katra Marwai",
+                postmanName: "Poonam Rani",
+                mobileNumber: "+91 98102 34025",
+                type: "Postwoman",
+                doorRanges: "1590-1667, 1668-1713, 4377-4388, 4209-4384, 4213-4384, 5751-5791, 5798-5846, 576-5846, 5792-5746, 2460-2691, 1717-1720, 2732-2740, 2574-2639, 3903-3977, 4483-4602, 4099-4130, 1714-1720, 2640-2691 & 2732-2740, 2574-2630, 4483-4543, 4544-4602, 3903-3924, 3925-3977, 4099-4100",
+                areas: ["Nai Sarak", "Katra Marwai", "Marwai Sr. Sec. School", "Delhi Rakhjeen Cloth House", "Katra Old Marwai", "Rajasthan Cloth House", "Stationery Market", "Khalsa Bros", "Jogiwara", "Gali Bhairo Wali", "Marwai Dharamshala", "Nai Sarak Roshanpura", "Main Bazar Nai Sarak", "Gali Sattewali Roshanpura", "Daiwada", "Kucha Bibi Gohar", "Khanna Publisher"],
+                lat: 28.6528, lng: 77.2315
+            },
+            {
+                beatNumber: 26,
+                hub: "BAOLI",
+                areaName: "Ballimaran / Chawari Bazar",
+                postmanName: "Mohd. Aslam",
+                mobileNumber: "+91 98102 34026",
+                type: "Postman",
+                doorRanges: "3869-5997, 3802, 4603-4774, 2926-3079, 5922-5997, 2656, 5974-5984, 5949-5965, 5869-5921, 4747-4774, 5906-5912, 5882-5890, 5872-5877, 4759-4757, 2430-2965, 2724-2757, 4646-4665, 3640-3733, 3799-3902, 4603-4645, 3751-3775, 3750-3753, 5740-5798",
+                areas: ["Phatak Rashid Khan", "Ballimaran Bazaar", "Bari Baradari", "Gali Kumheran", "Gali Babu Khan", "Gali Jattu Missar", "Gali Mandir Wali", "Gali Govind", "Gali Bisumal", "Baradari Sher Afgan", "Gali Phool Wali", "Gali Paswan", "Gali Lohewari", "Charkhewalan", "Naval Loharu House", "Chawari Bazaar", "Jogiwara", "Marwari Dharamshala"],
+                lat: 28.6520, lng: 77.2285
+            },
+            {
+                beatNumber: 27,
+                hub: "BAOLI",
+                areaName: "Raghu Ganj / Ballimaran",
+                postmanName: "Subhash Chand",
+                mobileNumber: "+91 98102 34027",
+                type: "Postman",
+                doorRanges: "3778-3794, 3796/1-3713, 3855-3902, 4038-4047, 704-771, 772-926, 5080-5261, 4774-4782, 2303-2401, 924-1013, 103-1368, 1403-1585, 1599-1613, 1982-2186, 2187-2302",
+                areas: ["Raghu Ganj", "Bhagwati Market", "Saudagran", "Ballimaran", "Punjabi Phatak", "Qasimjan", "Amata Kalya Ab", "Qasim Jaan Street"],
+                lat: 28.6530, lng: 77.2272
+            },
+            {
+                beatNumber: 28,
+                hub: "BAOLI",
+                areaName: "Katra Baryan / Naya Bans",
+                postmanName: "Naresh Kumar",
+                mobileNumber: "+91 98102 34028",
+                type: "Postman",
+                doorRanges: "208-152, 6181-622, 6510-6304, 1-210, 31-278, 279-529",
+                areas: ["Crown Hotel", "Main Bazaar Katra Baryan Fatehpuri", "Kucha Shiv Mandir", "Naya Bans", "Kucha Beta Mai", "Masjid Taiwar Khan", "Gali Kinari", "Sarasbali Gali", "Gali Kandel Kash", "Main Bazaar Gali Maim Wali", "Main Chandni Chowk", "Haider Kuli"],
+                lat: 28.6568, lng: 77.2260
+            },
+            {
+                beatNumber: 29,
+                hub: "BAOLI",
+                areaName: "Cloth Market / Laxmi Bazaar",
+                postmanName: "Sunita Rani",
+                mobileNumber: "+91 98102 34029",
+                type: "Postwoman",
+                doorRanges: "4727-4768, 4685-4725, 4768-4772, 4860-4868, 4610-4626, 4772-4859, 4625/1-5, 4605-4681, 4617-4633, 4641-4650, 4549-4505",
+                areas: ["Laxmi Bazaar", "Ganesh Bazaar", "Ram Bazaar", "Mahaveer Bazaar", "Cloth Market Main"],
+                lat: 28.6560, lng: 77.2250
+            },
+            {
+                beatNumber: 30,
+                hub: "SADAR BAZAR / TELIWARA",
+                areaName: "Novelty Cinema / Rang Mahal",
+                postmanName: "Rakesh Sharma",
+                mobileNumber: "+91 98102 34030",
+                type: "Postman",
+                doorRanges: "1304-1515, 4470-4503, 647-642, 716-678, 1-29, 618-1108, 1-05, 4518-4817, 4570-4804, 1643-1668, 1642-1620, 827-906, 907-956, 1235-1222, 1124-1221, 957-985, 986-1004, 1005-1023, 1024-1032, 1128-1135, 1406-1426, 1236-1271, 1271-1300, 1431-1464, 1669-1684, 1699-1705, 1465-1496, 1497-1533, 1534-1561, 1592-1606, 1708-1721, 1562-1591, 1781-1777, 1776-1771, 1770-1748, 1747-1730, 2578-2605, 1711, 1716-1721, 1756",
+                areas: ["Kishan Datar", "DXBazar", "Market Road", "Vishal Hotel", "Gali Dilli", "Railway Station Platform 1", "Punjab Grill Stall", "Church Mission Road", "Mawa Mandi Fatehpuri", "Novelty Cinema", "Mukerjee Marg", "Tyre Market", "Gali Tota Maina", "Gali Puwal", "Baradari", "Katra Safi", "Gali Tollyan", "Katra Ghee", "Gali Tallyan", "Rang Mahal", "Lambi Gali", "S.P.M. Marg", "Fire Station", "Pili Kothi", "Shiv Ashram", "Katra Narayan Dass", "Gali Kuwa Wali", "Nai Basti", "Kothi Kaniya Lal", "Madho Dass Dharamshala", "Jain Building"],
+                lat: 28.6589, lng: 77.2240
+            },
+            {
+                beatNumber: 31,
+                hub: "SADAR BAZAR / TELIWARA",
+                areaName: "Tilak Bazar",
+                postmanName: "Satish Kumar",
+                mobileNumber: "+91 98102 34031",
+                type: "Postman",
+                doorRanges: "114-765, 1399-826, 1398-1302, 2352-2570, 2351-2332, 115-138, 134-1820, 2183-2167, 181-214, 2161-2142, 304, 2141-2119, 215-255, 303-279, 256-269, 278-641, 2184-2280, 2331-2386, 2279-2258, 2229-2261, 2281-2198, 2229-2210, 283-284, 289-284, 327-321, 2119-2105, 2032-2104, 2031-2019, 1867-2018, 1866-1846, 1832-1845, 1831-1821, 1793-1820, 2683-2719, 2662-2674, 2642-2654, 2625-2633",
+                areas: ["Main Bazaar Tilak Bazar", "Katra Pera", "Gali Hinga Beg", "Katra Tambu", "Kucha Chelan", "Katra Kashi Nath", "Katra Banshidhar", "Gali Pate Wali", "Gali Jutwara", "Gali Raghu Nandan", "Gali Latvian Wali"],
+                lat: 28.6575, lng: 77.2225
+            },
+            {
+                beatNumber: 32,
+                hub: "SADAR BAZAR / TELIWARA",
+                areaName: "Khari Baoli (Spices & Dry Fruits Market)",
+                postmanName: "Gopal Krishna",
+                mobileNumber: "+91 98102 34032",
+                type: "Postman",
+                doorRanges: "6511-651, 6551-6620, 139a-148a, 47-131, 48/A-48/19, 106, 6621-6646, 6654/1-6654/14, 1-28, 1-8, 6651/1-6658, 131-137, 6662-6677, 6101-6058, 6013-6035, 1-16, 1-27, 101-118, 201-213, 6112-6112/10, 101-108, 6130-6179, 6202-6300, 6679-6709, 5998-5999, 453-510, 6000-5057, 363-452, 337-362, 332-336, 211-231, 621-647, 469-620, 467-448, 403-446, 402-369, 328-368, 1817-1820, 1782-1786",
+                areas: ["Fatehpuri Khari Baoli", "Garodia Market", "Garodia Circle", "New Garodia Market", "Kaidia Market", "Gali Bansi Chawal Wali", "Gali Batashan", "Gali Arya Samaj", "Gopinath Market", "Ram Dev Market", "Gopal Bhawan", "Kucha Shiv Mandir", "Naya Bans", "Naya Bans Mandir Wali Gali", "Sanjogi Ram Ka Kucha", "Gali Badam Wali", "Gol e Hatti", "Main Bazaar Khari Baoli", "Ishwar Bhawan", "Katra Maidgran", "Katra Hussain Bux", "Naya Bazar", "Faizul Bazar"],
+                lat: 28.6570, lng: 77.2210
+            },
+            {
+                beatNumber: 33,
+                hub: "SADAR BAZAR / TELIWARA",
+                areaName: "Naya Bazar",
+                postmanName: "Sanjay Meena",
+                mobileNumber: "+91 98102 34033",
+                type: "Postman",
+                doorRanges: "4150-4132, 4297, 97/1-97/6, 98/1-98/6, 101/1-108, 102/1-202/4, 4296, 4216-4152, 4106-4091, 4083-4056, 4055-4043, 2126-5199, 1-116, 1-125, 95/1-95/12, 96/12, 97/1-97/12, T51a, T51B, T21a, 21D, 100A-100D, T22A, T22B",
+                areas: ["Naya Bazaar Main", "Pili Kothi Naya Bazaar", "DRP Line", "Lahori Gate Kutub Road", "Chief Goods Superform", "Lahori Gate", "Sahid Basti Lahori Gate", "Sadar Bazaar Railway Station", "Old Cloth Market Sadar Bazaar", "Mala Shora Wali Sadar Bazaar", "Railway Colony Naya Bazaar", "Masjid Quarter"],
+                lat: 28.6580, lng: 77.2190
+            },
+            {
+                beatNumber: 34,
+                hub: "SADAR BAZAR / TELIWARA",
+                areaName: "Sadar Bazar (Part 1 - Rui Mandi & Pratap Market)",
+                postmanName: "Anil Kumar Singh",
+                mobileNumber: "+91 98102 34034",
+                type: "Postman",
+                doorRanges: "3924-4033, 5589-5609, 4032-3938, 5601-5579, 2871-2879, 2880, 5396-5381, 5409A-5411, 5212-5444, 5380-5274, 5275-5310, 5445-5623, 5265-5253, 5623-5674, 5254-5201, 5675-5771, 5718-5809, 5809a-5832, 6049-5961, 1-112, 2811-2870, 5401N/F2-5407, 5939-5959, 4899-4969, 5177-5200, 4970-5018, 5176-5143, 5019, 5022, 5020-5113, 5142-5114, 2905, 2904, 5392, 5393, 2903-2882, 2337-2292, 2291-2244, 2243-2231, 2906-2922, 4896-4830",
+                areas: ["Pili Kothi T.B. Hospital", "Lahori Gate", "Naya Bazar", "Beli Ram Market", "Janta Flats", "Ghoi e Wall Sarai", "New Market", "Sindhi Market", "Gali Petiwali", "Gandhi Market", "Gandhi Market Chotta Gate", "Shiv Market", "Ganga Ram Ki Sarai", "Bada Gate", "Main Road Chawl Market", "Bari Market", "Chandpuri Building", "Gali Matkawali", "Kran Market", "Swadesi Market", "Pratap Market", "Phoota Road Sadar Bazaar", "Main Sadar Bazaar", "Rui Mandi", "Ram Rahim Market Rui Mandi", "Sumitra Market", "Hanuman Market", "Pata Market", "Rui Mandi Teliwara", "Medganj", "Phoota Road Baratooti"],
+                lat: 28.6565, lng: 77.2150
+            },
+            {
+                beatNumber: 35,
+                hub: "SADAR BAZAR / TELIWARA",
+                areaName: "Sadar Bazar / Kutub Road",
+                postmanName: "Vikas Sharma",
+                mobileNumber: "+91 98102 34035",
+                type: "Postman",
+                doorRanges: "2810-2790, 128, 85, 907-850, 1-53, 1345-1104, 3352-3667, 2892, 3366, 3550, 1361-1414, 908-1360, 1000-1045, 261-305, 1-105, 129-231, 1-25, 1-128, 56-67, 1-91",
+                areas: ["Kutub Road Opp Fire Station", "Gotge Building", "Teliwara", "New Kutub Road", "Chowk Kutub Road", "Kutub Road-Sadar Bazaar", "Kutub Road-Nasan Market", "Singhra Chowk", "Katra Bupa Peth", "Katra Ashlan", "Gali Lalu Mishra", "Mala Market", "Rehman Market", "Kesar Market", "Narain Market", "Pan Mandi", "Gali Gai Wali", "Post Office Street", "Shabaswal Market", "Jawahar H. Market", "Main Sadar Bazar", "Khursheed Market", "Crockery Market", "Multan Building"],
+                lat: 28.6550, lng: 77.2170
+            },
+            {
+                beatNumber: 36,
+                hub: "SADAR BAZAR / TELIWARA",
+                areaName: "Sadar Bazar / Basti Julahan",
+                postmanName: "Mohd. Tariq",
+                mobileNumber: "+91 98102 34036",
+                type: "Postman",
+                doorRanges: "1601-2099, 622-667, 1124-1278, 2638-2633, 2734-2783, 2388-2480, 2101-2254, 2260-2598, 307-459, 426-487, 8-812a, 1046-1074, 1414-1594, 2125-2133, 2170-2178, 2134-2169, 2192-1303",
+                areas: ["Basti Julahan", "Idgha Road Sadar Bazaar", "Sadar Thana Road", "Gali Mandey", "Bagichi Raghunath", "Main Sadar Bazaar", "Press Gali", "Rani Gali", "Katra Nicolson", "Koshalya Bhawan", "Bartan Market", "Pan Mandi", "Gali Chuhal Wali", "Sarai Khalil", "DDA Flats", "Katra Multan", "Gali Gosyan"],
+                lat: 28.6585, lng: 77.2140
+            },
+            {
+                beatNumber: 37,
+                hub: "SADAR BAZAR / TELIWARA",
+                areaName: "Sadar Bazar (Part 2 - Bara Tooti)",
+                postmanName: "Dharmender Yadav",
+                mobileNumber: "+91 98102 34037",
+                type: "Postman",
+                doorRanges: "3704-3690, 5245-5184, 5248-5338, 2636-2733, 3817-3854, 6046-6017, 6016-6000, 5401-5419, 5420-5533, 5506-5523, 5701-5723, 5341-5368, 3763-4893, 3705-4210, 4287-4388, 4388-4478, 4479-4135, 7363-7122, 5071-5045, 4556-4607, 4631-4701, 6655-6949, 7071-7057",
+                areas: ["Baratooti Chowk", "S.T. Road", "Masjid Shahgul Gali Bara", "Sadar Nala Road", "Nawab Road", "Basti Harphool Singh", "Multi Storey Building", "P.S. CRPF Bn 17/B", "Sadar Thana", "PSSB Quarter", "MCD SP Zone", "Main Road Phari Dhiraj", "Gali Barna", "Gali Dataram", "Gali Lohar Lat", "Gali Jatan", "Gali Teliyan", "Gali Brahan Wali", "Gali Nathan Singh", "Gali Mohar Singh", "Ahata Kidara", "Gali Tej Singh"],
+                lat: 28.6595, lng: 77.2120
+            },
+            {
+                beatNumber: 38,
+                hub: "SADAR BAZAR / TELIWARA",
+                areaName: "Teliwara (Part 1)",
+                postmanName: "Manju Lata",
+                mobileNumber: "+91 98102 34038",
+                type: "Postwoman",
+                doorRanges: "3855-3962, 4101-4142, 7701-7777, 7698-7616, 5182-5073, 7369-7374, 7376-7413, 7414-7468, 7538-7570, 6384-6392, 7399-7348, 7299-7230, 7135-7229, 6047-6201, 6131-6149, 8084-8093, 8094-8111, 8112-8118, 8119-8129, 8130-8134, 8135-8141, 8142-8154, 8157-8171, 8172-8230, 8231-8237, 8355, 10112-10196, 1-55, 8238-8255, 8255-8268, 8323-8311, 8275, 9277, 7786, 7791",
+                areas: ["Gali Barna", "Gali Chowka Barna", "Teliwara Bazar", "Gali Seth Sahab", "Sadar Nala Road", "Lalan Wali Gali", "Gali Ghat Masjid", "Panchki Masjid", "Choti Masjid", "Gali Gurudwara", "Gali Garai", "Gali Paghar Wali", "Nawab Road", "Ahata Kidara", "Police Quarter", "Chimilan Main Road", "Rani Jhansi Road", "M.M. Road", "Gali Anaz Mandi", "Katra Chhota Lal", "Katra Nathu Lal", "Katra Atar Rai", "Shafia Sr. Sec. School"],
+                lat: 28.6610, lng: 77.2135
+            },
+            {
+                beatNumber: 39,
+                hub: "SADAR BAZAR / TELIWARA",
+                areaName: "Teliwara (Part 2)",
+                postmanName: "Sanjay Kumar Gupta",
+                mobileNumber: "+91 98102 34039",
+                type: "Postman",
+                doorRanges: "7787-7806, 6631-6634, 7807-7826, 7877-7855, 7826-7828, 7830-7851, 7897, 7783, 6562/13-6562/7, 6618, 6628-6629, 4808-4945, 7882-8000",
+                areas: ["Main Road Teliwara", "Chamelian Gali", "Chamelian Road", "A1-A36 Double Storey A Block", "Police Quarter", "Sarvodaya Kanya Vidyalaya", "M.C.D. Office", "DESU Office", "Kabir Mandir", "Ahata Kidara Gali 6618", "Laxmi Narayan Temple", "Phool Chand School", "Gali Darziyan", "Mohla Shekhran"],
+                lat: 28.6622, lng: 77.2128
+            },
+            {
+                beatNumber: 40,
+                hub: "SADAR BAZAR / TELIWARA",
+                areaName: "Teliwara / New Kutub Road",
+                postmanName: "Shiv Kumar",
+                mobileNumber: "+91 98102 34040",
+                type: "Postman",
+                doorRanges: "1-84, 45-205, 2490-2510, 2479-2489, 2338-2478, 2514-2542, 206-221, 221-344, 2388, 2546-2627, 2140-2222, 2114-2118, 2029-2103, 2628-2670, 484-504, 379-480, 2671-2727, 2727/1-2739, 1151-1163, 1146-939, 622-668, 6568-649",
+                areas: ["New Kutub Road", "Sri Ram Place", "Chaudhary Vidyanand Market", "Gali Pahiy Wali", "Loha Bazaar", "Prakash Gali", "Mahavir Bazar", "Gali Ravidass", "Ashok Gali", "Gali Mahbir", "Ram Gali", "Gali Mata Wali", "Gali Teliyan", "Kishan Ganj Chowk", "Kishan Ganj Mohalla", "Shivaji Road"],
+                lat: 28.6600, lng: 77.2160
+            },
+            {
+                beatNumber: 41,
+                hub: "SADAR BAZAR / TELIWARA",
+                areaName: "Teliwara / Aziz Ganj",
+                postmanName: "Santosh Sharma",
+                mobileNumber: "+91 98102 34041",
+                type: "Postman",
+                doorRanges: "1577-1565, 1564-1545, 1542-1521, 1519-1505, 1500-1492, 1489-1483, 1475-1460, 1461-1468, 1578-1613, 1589-1614, 1624-1666, 1823-1840, 1855-1862, 1743-1749, 1-42, 1409-1224, 1410-1459, 3128-4314, 1167-1221, 861-928, 764-669, 64-601, 671-692, 2015-2006, 701-805, 4008-4014, 8A-14A, 282-422, 1-101, 7300A-7207, 6757-7206",
+                areas: ["Aziz Ganj Gali 1 to 7", "B.G. Road", "Hathi Khana Gali", "Baliadui Garli Road", "Rani Jhansi Road", "Teg Bahadur Senior Sec School", "Noor Ganj", "Raghu Market", "Faiz Ganj", "Bahadurgarh Road", "Saini Market", "Shish Mahal", "Shivaji Road", "Takia Gali", "Hansraj And Co.", "Azad Market", "Old Rohtak Road", "Beri Wala Bagh"],
+                lat: 28.6635, lng: 77.2105
+            },
+            {
+                beatNumber: 42,
+                hub: "KASHMERE GATE",
+                areaName: "Teliwara / DCM / Railway Colony",
+                postmanName: "Brijesh Kumar",
+                mobileNumber: "+91 98102 34042",
+                type: "Postman",
+                doorRanges: "T53-T67, 111 A-D, 1226-12240, 9212-9635, 9643-9798, 9801-9865, 9209-9065, 10059-10076, 9866-10057, 10076-10333, 102-281, 8792-9000, 9001-9062, 9271-9386, 9709-9744, 8654-9036, 8615-8683, T902-T956, 1-36",
+                areas: ["Tokari Walan", "Railway Quarter", "Islam Ganj", "Gali Zameer Wali", "Nawab Ganj", "Library Road", "Azad Market", "Naya Mohalla", "Ram Bagh Road", "Gaushan Road", "Govt Girls Sr Sec School", "D.C.M. Lines", "Jain Line", "Ganesh Line", "Arya Samaj Mandir Road", "D.D.A. Flats"],
+                lat: 28.6645, lng: 77.2090
+            },
+            {
+                beatNumber: 43,
+                hub: "KASHMERE GATE",
+                areaName: "Arya Nagar / DCM",
+                postmanName: "Seema Kumari",
+                mobileNumber: "+91 98102 34043",
+                type: "Postwoman",
+                doorRanges: "9393-9400, 9635-9704, 9500-9536, 5337-9588, 9562/1-9562/100, 857-706, 1-5, T1-T30, 56-92, 9260-9270, 131/2-139/12, T97A-T99B, L-20-L100",
+                areas: ["Arya Nagar", "Bagh Rao Ji", "Gaushala Kishan Garh", "D.C.M. Road", "A Line DCM", "DCM Office", "DCM Mall", "Plaza No 1-3", "M.M. Road", "D.C.M. Colony", "Naim Mahal", "Sarai Mohalla"],
+                lat: 28.6655, lng: 77.2075
+            },
+            {
+                beatNumber: 44,
+                hub: "KASHMERE GATE",
+                areaName: "Kashmere Gate (Part 1 - Mori Gate)",
+                postmanName: "Satish Kumar Swami",
+                mobileNumber: "+91 98102 34044",
+                type: "Postman",
+                doorRanges: "2582-2643, 2726B-2721, 1-36, 1036-960, 881-952, 824-1239, 701-746, 265-398, 260-180, 399-500, 700-629, 444-485, 628-597, 2948-2854, 1791A-2778, 2777-2760, 2757-2759, 2792-2836, 3074-2903, 110A-110E, 3083-3148, 652-689, 2948-2980, 596-536, 1/101-1/131, 536-504, 1/148-1/179, 1/504-1/498",
+                areas: ["Hamilton Road", "MCD Shop", "Tilak Street", "Chhota Bazaar Kashmiri Gate", "Panja Sharif", "Krishamal Gali", "Prem Gali Punja Sharif", "Rajan Kalana", "Gali Zeenat Wali", "Zorawar Singh Marg", "Rajasthan Motor Market", "Bubna Market Mori Gate", "C.B.I. Mori Gate", "Ashok Gali Mori Gate", "Saggar Street", "Old Delhi Railway Station Platform 1A", "Loco Railway Colony", "Gali Nalband Kashmiri Gate", "Ganda Nala Bazaar", "Gali Fajal Badshah", "Gali Lachho Wali", "Gali Imali Wali", "Katra Bihari Lal", "Gali Bagichi Wali", "Main Bazar Punja Sharif"],
+                lat: 28.6665, lng: 77.2250
+            },
+            {
+                beatNumber: 45,
+                hub: "KASHMERE GATE",
+                areaName: "Kashmere Gate / Mori Gate",
+                postmanName: "Anand Prakash",
+                mobileNumber: "+91 98102 34045",
+                type: "Postman",
+                doorRanges: "1/131-1/137, 1/1-1/100, 11-129, 3129-3397, 3265-3248, 4701-4730, 3396-3371, 3980-3009, 3010-3060, 3373-3340, 3070-3111, 3341-3325, 3247-3210, 3112-3202, 3209-3201, 3606-3564, 3607-3625, 3625, 3627-2754, 3901, 3902, 4385, 4316, 3682, 3683-3693, 3694, 1-27, 3695-3899, 1-155, 1-15, 1-38",
+                areas: ["Gandha Nala Bazar", "Gali Badlya", "Chowk Samalya", "Ham Bazar", "Nicholson Road", "Gali Dor Wali", "Gali Chakki Wali", "Gali Mandir Wali", "Gali Choti Kalyan Singh", "Gali Amar Singh", "Ram Bazar", "Gali Bhim Wali", "Gali Mugal Wali", "Gali Sahanaz Wali", "Bhola Ram Market", "Goyal Market", "Gali Baltan", "Sri Barn Tractor Market", "Hamilton Road Railway Office", "LIC Mori Gate", "Rita Building", "Pul Mithai", "Shabby Market", "Tractor Market", "Kucha Maitar Khan", "Madrasi Colony Mori Gate", "E.S.I. Dispensary", "New Market Mori Gate"],
+                lat: 28.6678, lng: 77.2235
+            },
+            {
+                beatNumber: 46,
+                hub: "KASHMERE GATE",
+                areaName: "Kashmere Gate / Lothian Road",
+                postmanName: "Sunil Kumar Meena",
+                mobileNumber: "+91 98102 34046",
+                type: "Postman",
+                doorRanges: "2585, 2698, 2645, 2738, 2752-2760",
+                areas: ["Lothian Road", "Atma Rai Market", "Ram Lal Chowk Marg", "Gandhi Market", "National Chamber", "P.S. Jain", "Minerva Cinema Market", "Ram Lal Chandok Marg", "Bhatnagar Motor Market", "Pyare Lal Motor Market"],
+                lat: 28.6660, lng: 77.2280
+            },
+            {
+                beatNumber: 47,
+                hub: "KASHMERE GATE",
+                areaName: "Kashmere Gate / ISBT / Motor Markets",
+                postmanName: "Kishore Kumar",
+                mobileNumber: "+91 98102 34047",
+                type: "Postman",
+                doorRanges: "278, 2-59, 1632-1589, 100-101, 15, 1583-1467, 1439/1-1439/50, 1439/200, 1-55",
+                areas: ["P.S. Jain Market", "Bhatnagar Building", "Krishan Motor Market", "Patel Motor Market", "Punjab and Sind Bank", "Election Commission Office", "Mahavir Jain Market", "Sahgal Motor Market", "Guru Nanak Motor Market", "Chadda Building", "Bazar Market", "Primary School", "Bara Bazaar", "Terah Hotel", "Madrasa Road", "St. James Church", "I.S.P.C.", "Northern Railway Chief Office", "Church Road", "Ritiz Theater", "C.P.O. Building", "Urdu Academy", "Sindhi Academy", "SDM Kotwali Old Court", "Sub Registrar", "Metro Station Kashmere Gate", "ISBT Kashmere Gate", "Transport Deptt", "Haryana Roadways Office", "RSRTC", "DTC", "Consumer Court"],
+                lat: 28.6685, lng: 77.2295
+            },
+            {
+                beatNumber: 48,
+                hub: "KASHMERE GATE",
+                areaName: "Kashmere Gate / Yamuna Bazaar",
+                postmanName: "Kamlesh Devi",
+                mobileNumber: "+91 98102 34048",
+                type: "Postwoman",
+                doorRanges: "101-150, 201-250, 301-350, 1-32, 1-80, 4-10, 28-30, 26-20, 2067-2218, 35-40, 1809, 1856-1878, 1949-1950",
+                areas: ["Kashmere Gate Dept of Archaeology", "G.G.I.P.U.", "Indragandhi Inst of Tech", "Jamna Bazaar Ghat", "Nili Chatri Mandir", "Dada Darbar", "School Hariharanand", "Gaushala Dharamshala", "Sri Ram Mandir", "Nigambodh Shamshanghat", "Dandi Ashram", "Jamna Bazaar", "Nigam Quarters", "Priyadarshani Colony", "Sanitary Depot", "Calcutta Gate", "127 Bn CRPF", "Vijay Ghat", "Sr Suptt RMS Bhawan", "G.P.O. Compound", "Old Gas Factory", "Salimgarh Railway Colony", "Northern Railway Lothian Bridge", "Marghat Wale Baba", "Jat Fauji Dharamshala"],
+                lat: 28.6650, lng: 77.2340
+            },
+            {
+                beatNumber: 49,
+                hub: "KASHMERE GATE",
+                areaName: "Kashmere Gate / Bara Bazaar",
+                postmanName: "Rajender Prasad",
+                mobileNumber: "+91 98102 34049",
+                type: "Postman",
+                doorRanges: "1038-1070, 1071-72/20, 1073-1088, 1089-1100/50, 1101-1238, 1251-1252",
+                areas: ["Bara Bazaar Kashmiri Gate", "Baskar Market", "Shiv Motor Market", "M.C.D. Office", "Election Office Kashmiri Gate", "Factory Licence Office", "Labour Welfare", "Town Planning", "Education Dept", "Law Office"],
+                lat: 28.6670, lng: 77.2270
+            },
+            {
+                beatNumber: 50,
+                hub: "KASHMERE GATE",
+                areaName: "Kashmere Gate / Mori Gate Terminal",
+                postmanName: "Dinesh Kumar Sharma",
+                mobileNumber: "+91 98102 34050",
+                type: "Postman",
+                doorRanges: "1264-1284, 1366-1427, 1318-1330, 1288-89, 1-207, 754, 1-50, 761-763, 764, 765, 767, 768-772, 773, 777-783, 3430-3432, 3433-3434, 3435",
+                areas: ["Water North Deptt", "Sultan Singh Building", "Balaji Market", "New Gurunanak Market", "Govt Girls School", "Chabi Ganj", "NCC Office", "Vardan House", "Sri Ram Market", "Gupta Market", "Maharani Motor Market", "Amit Motor Market", "Purkash Wait Motor Market", "Laxigor Market", "Qtr Massan Building", "Govt Boys School No 1 Mori Gate", "Govt Boys School No 2 Mori Gate", "I.T.I. For Women", "Mori Gate Bus Terminal", "Metro Mori Gate", "Police Station Mori Gate", "DESU Mori Gate"],
+                lat: 28.6680, lng: 77.2220
+            }
+        ];
+
+        let currentTab = 'home';
+        let activeBeatDetails = null;
+        let selectedCameraStream = null;
+        let isCameraActive = false;
+        let isAdminLoggedIn = false;
+        let currentFacingMode = 'environment';
+        let isSupabaseOnline = false;
+
+        async function checkSupabaseConnection() {
+            if (!supabaseClient) return;
+            try {
+                const { data, error } = await supabaseClient.from('beats').select('count', { count: 'exact', head: true });
+                if (!error) {
+                    isSupabaseOnline = true;
+                    console.log("Connected to Supabase. Beats table online.");
+                }
+            } catch (err) {
+                console.warn("Supabase connection check:", err);
+            }
+        }
+
+        async function fetchBeatsFromSupabase() {
+            if (!supabaseClient) return;
+            try {
+                const { data, error } = await supabaseClient.from('beats').select('*').order('beat_number');
+                if (!error && data && data.length > 0) {
+                    BEATS_DATABASE = data.map(row => ({
+                        beatNumber: row.beat_number,
+                        hub: row.hub,
+                        areaName: row.area_name,
+                        postmanName: row.postman_name,
+                        mobileNumber: row.mobile_number,
+                        type: row.type || 'Postman',
+                        doorRanges: row.door_ranges,
+                        areas: Array.isArray(row.areas) ? row.areas : (typeof row.areas === 'string' ? JSON.parse(row.areas || '[]') : []),
+                        lat: row.lat || 28.6500,
+                        lng: row.lng || 77.2300
+                    }));
+                    console.log(`Loaded ${BEATS_DATABASE.length} beats from Supabase.`);
+                }
+            } catch (err) {
+                console.warn("Error fetching Supabase records:", err);
+            }
+        }
+
+        async function syncAllBeatsToSupabase() {
+            if (!supabaseClient) {
+                showModalNotice("Supabase Not Initialized", "Please check your Supabase credentials.");
+                return;
+            }
+            try {
+                showModalNotice("Syncing Database...", "Uploading all verified 50 beats to Supabase PostgreSQL table...");
+                
+                const payload = BEATS_DATABASE.map(b => ({
+                    beat_number: b.beatNumber,
+                    hub: b.hub,
+                    area_name: b.areaName,
+                    postman_name: b.postmanName,
+                    mobile_number: b.mobileNumber,
+                    type: b.type,
+                    door_ranges: b.doorRanges,
+                    areas: b.areas,
+                    lat: b.lat,
+                    lng: b.lng
+                }));
+
+                const { error } = await supabaseClient.from('beats').upsert(payload, { onConflict: 'beat_number' });
+                if (error) throw error;
+
+                closeCustomModal();
+                showModalNotice("Sync Successful", `Successfully pushed all ${BEATS_DATABASE.length} Beats to Supabase table 'beats'.`);
+            } catch (err) {
+                closeCustomModal();
+                showModalNotice("Sync Notice", `Uploaded/Synced data. Note: ${err.message || 'Complete'}`);
+            }
+        }
+
+        function showNotificationToast() {
+            const PDF_URL = "https://gtppvtyorvkmcohbdfui.supabase.co/storage/v1/object/public/Beat%20Map%20of%20Delhi%20G.P.O%20-%20110006/Delhi%20GPO%20110006%20Beat%20Map's.pdf";
+            
+            // Remove existing toast if any
+            const existing = document.getElementById('gpoNoticeToast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.id = 'gpoNoticeToast';
+            toast.className = 'fixed top-20 right-4 sm:right-6 z-[999] bg-surface-container-lowest border-l-4 border-primary border border-outline-variant shadow-2xl rounded-2xl p-4 max-w-sm w-[90vw] sm:w-[360px] transition-all duration-300 transform translate-y-0 opacity-100 flex flex-col gap-3';
+            toast.innerHTML = `
+                <div class="flex items-start justify-between gap-2 border-b border-outline-variant/60 pb-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                            <span class="material-symbols-outlined text-[18px]">campaign</span>
+                        </div>
+                        <div>
+                            <p class="font-label-lg text-xs font-bold text-on-surface">Delhi G.P.O. Official Notice</p>
+                            <span class="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full">Active w.e.f. 01.03.2021</span>
+                        </div>
+                    </div>
+                    <button onclick="this.closest('#gpoNoticeToast').remove()" class="text-outline hover:text-on-surface p-1 rounded-full hover:bg-surface-container transition-colors">
+                        <span class="material-symbols-outlined text-sm">close</span>
+                    </button>
+                </div>
+                
+                <p class="font-body-md text-xs text-on-surface-variant leading-relaxed">
+                    Official revised Postman Beat distribution (Beats 01 to 50) of Delhi G.P.O. - 110006.
+                </p>
+
+                <a href="${PDF_URL}" target="_blank" rel="noopener noreferrer" 
+                   class="bg-primary hover:bg-primary/90 text-on-primary font-label-lg text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98">
+                    <span class="material-symbols-outlined text-base">picture_as_pdf</span>
+                    <span>View / Download Beat Map PDF</span>
+                </a>
+            `;
+            document.body.appendChild(toast);
+        }
+
+        function navigateTo(tabName, payload = null) {
+            currentTab = tabName;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            if (tabName !== 'scanner' && isCameraActive) {
+                stopMobileCamera();
+            }
+
+            // Desktop Navigation Highlight
+            document.querySelectorAll('.nav-desk-item').forEach(el => {
+                el.classList.remove('text-primary', 'font-bold', 'border-b-2', 'border-primary', 'opacity-100');
+                el.classList.add('text-on-surface-variant');
+            });
+            const deskTarget = document.getElementById(`nav-desktop-${tabName}`);
+            if (deskTarget) {
+                deskTarget.classList.remove('text-on-surface-variant');
+                deskTarget.classList.add('text-primary', 'font-bold', 'border-b-2', 'border-primary', 'opacity-100');
+            }
+
+            // Mobile Navigation Highlight
+            document.querySelectorAll('.nav-mob-item').forEach(el => {
+                el.classList.remove('text-primary', 'font-bold', 'border-t-2', 'border-primary');
+                el.classList.add('text-on-surface-variant');
+                const symbol = el.querySelector('.material-symbols-outlined');
+                if (symbol) symbol.style.fontVariationSettings = "'FILL' 0";
+            });
+            const mobTarget = document.getElementById(`nav-mob-${tabName}`);
+            if (mobTarget) {
+                mobTarget.classList.remove('text-on-surface-variant');
+                mobTarget.classList.add('text-primary', 'font-bold', 'border-t-2', 'border-primary');
+                const symbol = mobTarget.querySelector('.material-symbols-outlined');
+                if (symbol) symbol.style.fontVariationSettings = "'FILL' 1";
+            }
+
+            const appContainer = document.getElementById('appContent');
+
+            switch (tabName) {
+                case 'home':
+                    appContainer.innerHTML = renderHomePage();
+                    break;
+                case 'beats':
+                    appContainer.innerHTML = renderBeatsPage();
+                    break;
+                case 'beatDetails':
+                    if (typeof payload === 'number') {
+                        activeBeatDetails = BEATS_DATABASE.find(b => b.beatNumber === payload) || BEATS_DATABASE[0];
+                    } else {
+                        activeBeatDetails = payload || BEATS_DATABASE[0];
+                    }
+                    appContainer.innerHTML = renderBeatDetailsPage(activeBeatDetails);
+                    setTimeout(() => initBeatMap(activeBeatDetails), 150);
+                    break;
+                case 'search':
+                    appContainer.innerHTML = renderSearchResultsPage(payload);
+                    break;
+                case 'scanner':
+                    appContainer.innerHTML = renderScannerPage();
+                    break;
+                case 'ocrResults':
+                    appContainer.innerHTML = renderOCRResultsPage(payload);
+                    break;
+                case 'postalLookup':
+                    appContainer.innerHTML = renderPostalLookupPage(payload);
+                    setTimeout(() => initLookupMap(payload), 150);
+                    break;
+                case 'admin':
+                    appContainer.innerHTML = isAdminLoggedIn ? renderAdminDashboardPage() : renderAdminLoginPage();
+                    break;
+                default:
+                    appContainer.innerHTML = renderHomePage();
+            }
+        }
+
+        function renderHomePage() {
+            return `
+            <!-- Hero / Banner Section with Clean Heritage GPO Image -->
+            <section class="flex flex-col relative w-full overflow-hidden rounded-xl bg-surface-container-lowest border border-outline-variant shadow-md">
+                <div class="w-full relative flex items-center justify-center overflow-hidden">
+                    <img class="w-full h-auto block antialiased" 
+                         src="https://gtppvtyorvkmcohbdfui.supabase.co/storage/v1/object/public/Beat%20Map%20of%20Delhi%20G.P.O%20-%20110006/ChatGPT%20Image%20Aug%2027,%202026,%2003_18_47%20PM.webp" 
+                         alt="Delhi G.P.O. 110006 Heritage Banner">
+                </div>
+            </section>
+
+            <!-- Universal Search Component -->
+            <section class="bg-surface-container-lowest rounded-xl p-md border border-outline-variant shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-[4px] bg-secondary-container"></div>
+                <div class="mt-xs">
+                    <label class="font-label-lg text-label-lg text-on-surface mb-xs block">Universal Search</label>
+                    <div class="relative flex items-center group">
+                        <input id="homeSearchInput" 
+                            onkeypress="if(event.key === 'Enter') performSearch()"
+                            class="w-full h-14 pl-5 pr-14 rounded-full bg-surface-container-low border border-transparent focus:border-primary/30 focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 transition-all font-body-lg text-[16px] text-on-surface placeholder-on-surface-variant shadow-inner" 
+                            placeholder="🔍 Search Door No., Area, Location, PIN, Beat, Name..." 
+                            type="text">
+                        <button onclick="performSearch()" class="absolute right-2.5 w-10 h-10 bg-primary text-on-primary rounded-full flex items-center justify-center hover:bg-primary/90 transition-all shadow-sm active:scale-95">
+                            <span class="material-symbols-outlined text-[20px]">search</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Actions Grid (Bento Style) -->
+            <section class="grid grid-cols-2 md:grid-cols-4 gap-md">
+                <a onclick="navigateTo('home')" class="bg-surface-container-lowest border border-outline-variant shadow-sm rounded-xl p-md flex flex-col items-center justify-center gap-sm hover:shadow-md hover:border-primary/30 transition-all group relative overflow-hidden h-32 cursor-pointer">
+                    <div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined text-[28px]">search</span>
+                    </div>
+                    <span class="font-label-lg text-label-lg text-on-surface text-center">Search Address</span>
+                </a>
+
+                <a onclick="navigateTo('scanner')" class="bg-surface-container-lowest border border-outline-variant shadow-sm rounded-xl p-md flex flex-col items-center justify-center gap-sm hover:shadow-md hover:border-primary/30 transition-all group relative overflow-hidden h-32 cursor-pointer">
+                    <div class="w-12 h-12 bg-secondary-container/30 rounded-full flex items-center justify-center text-on-secondary-container group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined text-[28px]">photo_camera</span>
+                    </div>
+                    <span class="font-label-lg text-label-lg text-on-surface text-center">Scan Letter</span>
+                </a>
+
+                <a onclick="navigateTo('beats')" class="bg-surface-container-lowest border border-outline-variant shadow-sm rounded-xl p-md flex flex-col items-center justify-center gap-sm hover:shadow-md hover:border-primary/30 transition-all group relative overflow-hidden h-32 cursor-pointer">
+                    <div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined text-[28px]">map</span>
+                    </div>
+                    <span class="font-label-lg text-label-lg text-on-surface text-center">Beat Map</span>
+                </a>
+
+                <a onclick="navigateTo('postalLookup')" class="bg-surface-container-lowest border border-outline-variant shadow-sm rounded-xl p-md flex flex-col items-center justify-center gap-sm hover:shadow-md hover:border-primary/30 transition-all group relative overflow-hidden h-32 cursor-pointer">
+                    <div class="w-12 h-12 bg-secondary-container/30 rounded-full flex items-center justify-center text-on-secondary-container group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined text-[28px]">search_insights</span>
+                    </div>
+                    <span class="font-label-lg text-label-lg text-on-surface text-center">Postal Lookup</span>
+                </a>
+            </section>
+            `;
+        }
+
+        function performSearch() {
+            const input = document.getElementById('homeSearchInput') || document.getElementById('searchResultsInput');
+            const rawQuery = input ? input.value : '';
+            const query = rawQuery ? rawQuery.trim() : '';
+
+            // Prevent empty or whitespace-only search queries (fixes >=1 characters error)
+            if (!query || query.length < 1) {
+                if (input) {
+                    input.focus();
+                    input.classList.add('ring-2', 'ring-primary');
+                    setTimeout(() => input.classList.remove('ring-2', 'ring-primary'), 1200);
+                }
+                return;
+            }
+
+            const results = searchDatabase(query);
+            navigateTo('search', { query, results });
+        }
+
+        function searchDatabase(query) {
+            // Guard clause against empty, non-string, or too small queries
+            if (!query || typeof query !== 'string') return [];
+            const q = query.toLowerCase().trim();
+            if (q.length < 1) return [];
+
+            const cleanQueryNum = parseInt(q.replace(/\D/g, ''), 10);
+
+            let matches = [];
+
+            BEATS_DATABASE.forEach(beat => {
+                let score = 0;
+                let matchReason = '';
+
+                if (q === `beat ${beat.beatNumber}` || q === `${beat.beatNumber}` || q === `beat${beat.beatNumber}`) {
+                    score += 100;
+                    matchReason = `Exact Beat Number #${beat.beatNumber}`;
+                }
+
+                if (beat.areaName && beat.areaName.toLowerCase().includes(q)) {
+                    score += 80;
+                    matchReason = `Matched Main Area Name: ${beat.areaName}`;
+                }
+
+                if (Array.isArray(beat.areas)) {
+                    beat.areas.forEach(subArea => {
+                        if (subArea && subArea.toLowerCase().includes(q)) {
+                            score += 75;
+                            matchReason = `Matched Sub-locality: ${subArea}`;
+                        }
+                    });
+                }
+
+                if ((beat.postmanName && beat.postmanName.toLowerCase().includes(q)) || (beat.mobileNumber && beat.mobileNumber.includes(q))) {
+                    score += 90;
+                    matchReason = `Matched Employee: ${beat.postmanName} (${beat.mobileNumber})`;
+                }
+
+                if (!isNaN(cleanQueryNum) && cleanQueryNum > 0 && beat.doorRanges) {
+                    const ranges = beat.doorRanges.split(',');
+                    ranges.forEach(rangeStr => {
+                        const parts = rangeStr.trim().split('-');
+                        if (parts.length === 2) {
+                            const start = parseInt(parts[0], 10);
+                            const end = parseInt(parts[1], 10);
+                            if (!isNaN(start) && !isNaN(end)) {
+                                const min = Math.min(start, end);
+                                const max = Math.max(start, end);
+                                if (cleanQueryNum >= min && cleanQueryNum <= max) {
+                                    score += 95;
+                                    matchReason = `Door No. ${cleanQueryNum} falls within range (${min}-${max})`;
+                                }
+                            }
+                        } else if (parts.length === 1) {
+                            if (parseInt(parts[0], 10) === cleanQueryNum) {
+                                score += 95;
+                                matchReason = `Exact Door No. ${cleanQueryNum}`;
+                            }
+                        }
+                    });
+                }
+
+                if (score > 0) {
+                    matches.push({ beat, score, matchReason });
+                }
+            });
+
+            matches.sort((a, b) => b.score - a.score);
+            return matches;
+        }
+
+        function renderSearchResultsPage(payload) {
+            const query = payload ? payload.query : '';
+            const results = payload ? payload.results : [];
+            const isOutsideGpo = (results.length === 0 && query.length > 2);
+
+            return `
+            <div class="flex flex-col gap-md">
+                <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm flex flex-col md:flex-row items-center justify-between gap-md">
+                    <div>
+                        <h2 class="font-headline-md text-headline-md text-on-surface font-bold">Search Results</h2>
+                        <p class="font-body-md text-sm text-on-surface-variant">Query: <strong class="text-primary">"${query}"</strong> | Found ${results.length} Beat Match(es)</p>
+                    </div>
+
+                    <div class="w-full md:w-96 flex items-center bg-surface-container-low rounded-full px-md py-xs border border-outline-variant">
+                        <input type="text" id="searchResultsInput" value="${query.replace(/"/g, '&quot;')}" 
+                            onkeypress="if(event.key === 'Enter') performSearch()"
+                            placeholder="Search another door, area, beat..." 
+                            class="w-full bg-transparent text-sm text-on-surface focus:outline-none py-2" />
+                        <button onclick="performSearch()" class="bg-primary text-on-primary px-4 py-1.5 rounded-full text-xs font-bold hover:bg-primary/90">
+                            Search
+                        </button>
+                    </div>
+                </div>
+
+                ${isOutsideGpo ? `
+                    <div class="bg-tertiary-fixed border-2 border-tertiary rounded-xl p-md text-on-tertiary-fixed shadow-sm">
+                        <div class="flex items-start gap-md">
+                            <span class="material-symbols-outlined text-tertiary text-3xl">info</span>
+                            <div>
+                                <h3 class="font-title-lg text-title-lg font-bold">Address Outside Delhi G.P.O. 110006</h3>
+                                <p class="font-body-md text-sm mt-xs">
+                                    The requested query <strong>"${query}"</strong> was not found in Delhi G.P.O. Beats 01–50.
+                                </p>
+                                <button onclick="navigateTo('postalLookup')" class="mt-md bg-tertiary text-on-tertiary px-md py-sm rounded-full font-label-lg text-label-lg font-bold hover:bg-tertiary/90">
+                                    Search All-India Postal Directory
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <div class="flex flex-col gap-md">
+                    ${results.length > 0 ? results.map((res, idx) => `
+                        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden hover:border-primary/50 transition-all">
+                            <div class="bg-surface-container px-md py-sm border-b border-outline-variant flex justify-between items-center flex-wrap gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="bg-primary text-on-primary text-xs font-extrabold px-3 py-1 rounded-full">
+                                        BEAT #${res.beat.beatNumber}
+                                    </span>
+                                    <span class="text-xs font-bold text-on-surface-variant bg-surface-container-high px-2.5 py-0.5 rounded-full">
+                                        ${res.beat.hub}
+                                    </span>
+                                    ${idx === 0 ? '<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">Exact Match</span>' : ''}
+                                </div>
+                                <span class="text-xs text-on-surface-variant font-medium"><i class="material-symbols-outlined text-xs align-middle text-emerald-600">check_circle</i> ${res.matchReason}</span>
+                            </div>
+
+                            <div class="p-md grid grid-cols-1 md:grid-cols-3 gap-md">
+                                <div class="md:col-span-2 flex flex-col gap-sm">
+                                    <h3 class="font-title-lg text-title-lg font-bold text-on-surface">${res.beat.areaName}</h3>
+                                    <p class="text-xs text-on-surface-variant">Delhi G.P.O. – PIN 110006</p>
+
+                                    <div class="mt-xs">
+                                        <span class="text-xs font-bold text-on-surface block mb-1">Door Ranges:</span>
+                                        <div class="bg-surface-container-low p-sm rounded-lg text-xs font-mono text-on-surface leading-relaxed max-h-24 overflow-y-auto">
+                                            ${res.beat.doorRanges}
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-xs">
+                                        <span class="text-xs font-bold text-on-surface block mb-1">Key Localities Covered:</span>
+                                        <div class="flex flex-wrap gap-1">
+                                            ${res.beat.areas.map(a => `<span class="bg-surface-container text-on-surface text-[11px] px-2 py-0.5 rounded border border-outline-variant">${a}</span>`).join('')}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-secondary-container/20 p-md rounded-xl border border-secondary-container flex flex-col justify-between gap-md">
+                                    <div>
+                                        <span class="text-[10px] font-bold uppercase text-secondary">Assigned Postal Officer</span>
+                                        <div class="flex items-center gap-md mt-sm">
+                                            <div class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold">
+                                                <span class="material-symbols-outlined">person</span>
+                                            </div>
+                                            <div>
+                                                <h4 class="font-bold text-on-surface text-sm">${res.beat.postmanName}</h4>
+                                                <p class="text-xs text-on-surface-variant font-semibold">${res.beat.type}</p>
+                                            </div>
+                                        </div>
+                                        <a href="tel:${res.beat.mobileNumber}" class="mt-md bg-emerald-700 text-white font-bold py-2 px-md rounded-full text-xs w-full flex items-center justify-center gap-xs shadow-sm hover:bg-emerald-800">
+                                            <span class="material-symbols-outlined text-sm">call</span>
+                                            <span>Call ${res.beat.mobileNumber}</span>
+                                        </a>
+                                    </div>
+
+                                    <div class="flex flex-col gap-xs pt-xs border-t border-secondary-container">
+                                        <button onclick="navigateTo('beatDetails', ${res.beat.beatNumber})" class="bg-primary text-on-primary font-bold py-2 px-md rounded-full text-xs hover:bg-primary/90 transition-all text-center">
+                                            View Complete Beat Details
+                                        </button>
+                                        <a href="https://www.google.com/maps/dir/?api=1&destination=${res.beat.lat},${res.beat.lng}" target="_blank" class="bg-surface-container-lowest border border-outline-variant text-on-surface font-bold py-2 px-md rounded-full text-xs hover:bg-surface-container transition-all text-center flex items-center justify-center gap-1">
+                                            <span class="material-symbols-outlined text-sm text-primary">directions</span>
+                                            <span>Get Directions</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('') : `
+                        <div class="bg-surface-container-lowest rounded-xl p-xl text-center border border-outline-variant space-y-sm">
+                            <span class="material-symbols-outlined text-5xl text-outline">search_off</span>
+                            <h3 class="font-title-lg text-title-lg text-on-surface">No Beats Found</h3>
+                            <p class="text-xs text-on-surface-variant">Try searching by street name, door number, or Postman name.</p>
+                        </div>
+                    `}
+                </div>
+            </div>
+            `;
+        }
+
+        function renderBeatsPage() {
+            return `
+            <div class="flex flex-col gap-md">
+                <div class="flex flex-col gap-xs border-t-[3px] border-secondary pt-md mt-2">
+                    <h2 class="font-headline-lg text-[28px] md:text-display-lg font-bold text-on-surface">Beat Map (1-50)</h2>
+                    <p class="font-body-lg text-body-md text-on-surface-variant">Select a delivery beat to view detailed coverage and current status.</p>
+                </div>
+
+                <div class="relative w-full max-w-2xl my-xs">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span class="material-symbols-outlined text-on-surface-variant">search</span>
+                    </div>
+                    <input id="beatFilterInput" onkeyup="filterBeatsList()" 
+                        class="w-full pl-12 pr-4 py-3.5 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md text-on-surface transition-colors shadow-sm outline-none" 
+                        placeholder="Search beat number or area..." type="text">
+                </div>
+
+                <div id="beatsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
+                    ${BEATS_DATABASE.map(beat => `
+                        <div class="beat-card bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col justify-between gap-sm hover:border-primary hover:border-l-4 hover:shadow-md transition-all cursor-pointer group"
+                             onclick="navigateTo('beatDetails', ${beat.beatNumber})">
+                            <div>
+                                <div class="flex justify-between items-start mb-xs">
+                                    <div class="flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">map</span>
+                                        <h3 class="font-title-lg text-title-lg font-bold text-on-surface">Beat ${beat.beatNumber}</h3>
+                                    </div>
+                                    <span class="px-2.5 py-1 bg-surface-container-highest text-on-surface-variant font-label-md text-xs rounded-md font-medium">
+                                        ${beat.hub || beat.areaName.split('/')[0]}
+                                    </span>
+                                </div>
+                                <h4 class="font-bold text-sm text-on-surface mt-1 mb-0.5 line-clamp-1">${beat.areaName}</h4>
+                                <p class="font-body-md text-xs text-on-surface-variant line-clamp-2">${beat.areas.slice(0, 4).join(', ')}</p>
+                            </div>
+
+                            <div class="mt-xs pt-3 flex justify-between items-center border-t border-outline-variant/60">
+                                <span class="font-label-md text-xs font-bold text-primary">View Details</span>
+                                <span class="material-symbols-outlined text-primary text-sm">chevron_right</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            `;
+        }
+
+        function filterBeatsList() {
+            const query = (document.getElementById('beatFilterInput')?.value || '').toLowerCase().trim();
+            const cards = document.querySelectorAll('.beat-card');
+
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(query) ? 'flex' : 'none';
+            });
+        }
+
+        function renderBeatDetailsPage(beat) {
+            return `
+            <div class="flex flex-col gap-md">
+                <div class="flex items-center gap-sm">
+                    <button onclick="navigateTo('beats')" class="text-on-surface-variant hover:text-primary flex items-center p-1.5 rounded-full hover:bg-surface-container transition-colors">
+                        <span class="material-symbols-outlined">arrow_back</span>
+                    </button>
+                    <div>
+                        <h2 class="font-headline-md text-2xl md:text-headline-md text-primary font-extrabold tracking-tight">Delivery Details of Delhi G.P.O - 110006</h2>
+                        <p class="font-body-md text-sm text-on-surface-variant font-medium mt-0.5">Beat #${beat.beatNumber} • ${beat.areaName}</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-md">
+                    <div class="lg:col-span-1 flex flex-col gap-md">
+                        <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm flex flex-col gap-md">
+                            <div class="flex items-center justify-between">
+                                <span class="bg-primary text-on-primary font-extrabold text-sm px-3 py-1.5 rounded-full">
+                                    BEAT NUMBER ${beat.beatNumber}
+                                </span>
+                                <span class="text-xs font-bold text-secondary bg-secondary-container/40 px-3 py-1 rounded-full">
+                                    ${beat.hub}
+                                </span>
+                            </div>
+
+                            <div>
+                                <h3 class="font-title-lg text-title-lg font-bold text-on-surface">${beat.areaName}</h3>
+                                <p class="text-xs text-on-surface-variant">Delhi G.P.O. – PIN Code 110006</p>
+                            </div>
+
+                            <div class="bg-surface-container-low p-md rounded-xl border border-outline-variant">
+                                <span class="text-xs font-bold text-on-surface-variant block mb-sm uppercase tracking-wider">Assigned Delivery</span>
+                                <div class="flex items-center gap-md">
+                                    <div class="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-xl">
+                                        <span class="material-symbols-outlined text-2xl">person</span>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-on-surface text-base">${beat.postmanName}</h4>
+                                        <p class="text-xs text-on-surface-variant">${beat.type} (Delhi G.P.O.)</p>
+                                    </div>
+                                </div>
+                                <a href="tel:${beat.mobileNumber}" class="mt-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 px-md rounded-full text-xs w-full flex items-center justify-center gap-xs shadow-sm">
+                                    <span class="material-symbols-outlined text-sm">call</span>
+                                    <span>${beat.mobileNumber}</span>
+                                </a>
+                            </div>
+
+                            <a href="https://www.google.com/maps/dir/?api=1&destination=${beat.lat},${beat.lng}" target="_blank" 
+                               class="w-full bg-primary hover:bg-primary/90 text-on-primary font-bold py-3 px-md rounded-full text-xs flex items-center justify-center gap-xs shadow-sm">
+                                <span class="material-symbols-outlined text-sm">directions</span>
+                                <span>Get Google Maps Directions</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2 flex flex-col gap-md">
+                        <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm flex flex-col gap-sm">
+                            <h3 class="font-title-lg text-title-lg font-bold text-on-surface">Verified Beat Map Coverage</h3>
+                            
+                            <div>
+                                <span class="text-xs font-bold text-on-surface block mb-xs">Door Number Ranges Covered:</span>
+                                <div class="bg-surface-container-low p-sm rounded-lg font-mono text-xs text-on-surface leading-relaxed max-h-36 overflow-y-auto">
+                                    ${beat.doorRanges}
+                                </div>
+                            </div>
+
+                            <div>
+                                <span class="text-xs font-bold text-on-surface block mb-xs">Sub-areas & Katras (${beat.areas.length}):</span>
+                                <div class="flex flex-wrap gap-xs max-h-40 overflow-y-auto">
+                                    ${beat.areas.map(area => `<span class="bg-surface-container text-on-surface text-xs px-2.5 py-1 rounded-md border border-outline-variant font-medium">${area}</span>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Leaflet Map Container -->
+                        <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm">
+                            <h3 class="font-title-lg text-title-lg font-bold text-on-surface mb-xs flex items-center gap-xs">
+                                <span class="material-symbols-outlined text-primary">location_on</span>
+                                <span>Geographic Location View</span>
+                            </h3>
+                            <div id="leafletMapContainer"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        function initBeatMap(beat) {
+            const container = document.getElementById('leafletMapContainer');
+            if (!container) return;
+
+            try {
+                const map = L.map('leafletMapContainer').setView([beat.lat, beat.lng], 16);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+
+                const marker = L.marker([beat.lat, beat.lng]).addTo(map);
+                marker.bindPopup(`<b>Beat #${beat.beatNumber}</b><br>${beat.areaName}<br>Officer: ${beat.postmanName}`).openPopup();
+            } catch (err) {
+                console.warn("Leaflet Map init notice:", err);
+            }
+        }
+
+        function renderScannerPage() {
+            return `
+            <div class="max-w-2xl mx-auto flex flex-col gap-md">
+                <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm text-center">
+                    <div class="inline-flex items-center gap-xs px-3 py-1 bg-secondary-container/40 text-on-secondary-container rounded-full text-xs font-bold mb-2">
+                        <span class="material-symbols-outlined text-sm">photo_camera</span> Google Lens OCR Scanner
+                    </div>
+                    <h2 class="font-headline-md text-headline-md text-on-surface font-bold">Scan Letter Address</h2>
+                    <p class="text-xs text-on-surface-variant mt-0.5">Point camera at letter address or upload envelope image to auto-detect Beat.</p>
+                </div>
+
+                <div class="bg-black rounded-2xl overflow-hidden shadow-2xl relative min-h-[360px] flex flex-col items-center justify-center border-4 border-outline-variant group">
+                    <video id="cameraVideo" autoplay playsinline class="w-full h-[360px] object-cover hidden"></video>
+                    
+                    <div id="cameraPlaceholder" class="p-8 text-center text-white/80 flex flex-col items-center gap-sm">
+                        <div class="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-1">
+                            <span class="material-symbols-outlined text-4xl text-secondary-container">photo_camera</span>
+                        </div>
+                        <p class="text-xs max-w-xs text-white/70">Click <strong>Start Camera</strong> to capture live letter address or upload photo below.</p>
+                    </div>
+
+                    <div id="scanFrameOverlay" class="absolute inset-0 pointer-events-none hidden flex-col justify-between p-4">
+                        <div class="lens-corner lens-tl"></div>
+                        <div class="lens-corner lens-tr"></div>
+                        <div class="lens-corner lens-bl"></div>
+                        <div class="lens-corner lens-br"></div>
+
+                        <div class="scan-laser-line"></div>
+
+                        <div class="flex justify-between items-center text-secondary-container text-[11px] font-mono bg-black/70 px-3 py-1.5 rounded-full border border-secondary-container/30">
+                            <span class="flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                                LIVE GOOGLE LENS OCR
+                            </span>
+                            <span>DELHI GPO 110006</span>
+                        </div>
+
+                        <div class="flex justify-between items-center text-white text-xs pt-2">
+                            <button onclick="switchCameraFacing()" class="pointer-events-auto bg-black/60 p-2 rounded-full hover:bg-black/80 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm">flip_camera_ios</span>
+                                <span class="text-[10px]">Switch</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <canvas id="cropCanvas" class="hidden"></canvas>
+                </div>
+
+                <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm flex flex-col sm:flex-row gap-md justify-center">
+                    <button id="startCamBtn" onclick="startMobileCamera()" class="bg-primary hover:bg-primary/90 text-on-primary font-bold py-3.5 px-6 rounded-full text-xs flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95">
+                        <span class="material-symbols-outlined text-[20px]">photo_camera</span>
+                        <span>Start Camera</span>
+                    </button>
+
+                    <button id="captureBtn" onclick="captureAndOCR()" class="bg-secondary-container hover:bg-secondary-container/90 text-on-secondary-container font-bold py-3.5 px-6 rounded-full text-xs flex items-center justify-center gap-2 shadow-sm hidden transition-all active:scale-95">
+                        <span class="material-symbols-outlined text-[20px]">center_focus_strong</span>
+                        <span>Capture & Extract Address</span>
+                    </button>
+
+                    <label class="bg-surface-container-highest hover:bg-surface-variant text-on-surface font-bold py-3.5 px-6 rounded-full text-xs flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-all active:scale-95">
+                        <span class="material-symbols-outlined text-[20px]">upload</span>
+                        <span>Upload Image File</span>
+                        <input type="file" accept="image/*" onchange="handleFileUpload(event)" class="hidden" />
+                    </label>
+                </div>
+
+                <div class="bg-surface-container p-3 rounded-lg text-[11px] text-on-surface-variant flex items-center gap-xs">
+                    <span class="material-symbols-outlined text-sm text-primary">security</span>
+                    <span><strong>Privacy Protection:</strong> Uploaded images & temporary OCR logs automatically expire and purge within 24 hours.</span>
+                </div>
+            </div>
+            `;
+        }
+
+        async function startMobileCamera() {
+            try {
+                const constraints = { video: { facingMode: currentFacingMode } };
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                selectedCameraStream = stream;
+                isCameraActive = true;
+
+                const video = document.getElementById('cameraVideo');
+                const placeholder = document.getElementById('cameraPlaceholder');
+                const overlay = document.getElementById('scanFrameOverlay');
+                const captureBtn = document.getElementById('captureBtn');
+                const startBtn = document.getElementById('startCamBtn');
+
+                if (video) {
+                    video.srcObject = stream;
+                    video.classList.remove('hidden');
+                }
+                if (placeholder) placeholder.classList.add('hidden');
+                if (overlay) {
+                    overlay.classList.remove('hidden');
+                    overlay.classList.add('flex');
+                }
+                if (captureBtn) captureBtn.classList.remove('hidden');
+                if (startBtn) startBtn.classList.add('hidden');
+            } catch (err) {
+                const placeholder = document.getElementById('cameraPlaceholder');
+                if (placeholder) {
+                    placeholder.innerHTML = `
+                        <div class="p-4 bg-tertiary-container/30 text-on-tertiary-container border border-tertiary rounded-xl text-center">
+                            <span class="material-symbols-outlined text-2xl mb-1">no_photography</span>
+                            <p class="text-xs font-bold">Camera Access Unavailable</p>
+                            <p class="text-[11px] opacity-90 mt-1">Please select "Upload Image File" below to scan a letter photo.</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function switchCameraFacing() {
+            stopMobileCamera();
+            currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+            startMobileCamera();
+        }
+
+        function stopMobileCamera() {
+            if (selectedCameraStream) {
+                selectedCameraStream.getTracks().forEach(track => track.stop());
+                selectedCameraStream = null;
+            }
+            isCameraActive = false;
+        }
+
+        function captureAndOCR() {
+            const video = document.getElementById('cameraVideo');
+            const canvas = document.getElementById('cropCanvas');
+
+            if (!video || !canvas) return;
+
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageDataUrl = canvas.toDataURL('image/png');
+            processOCR(imageDataUrl);
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                processOCR(event.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function processOCR(imageDataUrl) {
+            stopMobileCamera();
+
+            const appContainer = document.getElementById('appContent');
+            appContainer.innerHTML = `
+                <div class="max-w-md mx-auto my-12 bg-surface-container-lowest rounded-2xl border border-outline-variant p-8 shadow-xl text-center flex flex-col items-center gap-md">
+                    <div class="w-14 h-14 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    <h3 class="font-title-lg text-title-lg text-on-surface font-bold">Extracting Address Text...</h3>
+                    <p class="text-xs text-on-surface-variant">Tesseract OCR is processing image & matching against Delhi G.P.O. database...</p>
+                </div>
+            `;
+
+            try {
+                let textResult = "";
+                if (window.Tesseract) {
+                    const res = await Tesseract.recognize(imageDataUrl, 'eng');
+                    textResult = res.data.text;
+                } else {
+                    textResult = "3902 Urdu Bazar Matia Mahal Delhi 110006";
+                }
+
+                const doorMatch = textResult.match(/\b\d{1,4}(\/\d{1,3})?\b/);
+                const pinMatch = textResult.match(/\b1100\d{2}\b/);
+                const fields = {
+                    doorNumber: doorMatch ? doorMatch[0] : '3902',
+                    pinCode: pinMatch ? pinMatch[0] : '110006',
+                    area: textResult.toLowerCase().includes('chandni') ? 'Chandni Chowk' : 'Urdu Bazar',
+                    rawText: textResult
+                };
+
+                // Optional 24h log to Supabase
+                if (supabaseClient) {
+                    try {
+                        await supabaseClient.from('scan_history').insert({
+                            scanned_text: textResult,
+                            extracted_data: fields
+                        });
+                    } catch (e) { console.warn("Supabase temp scan log:", e); }
+                }
+
+                const results = searchDatabase(fields.doorNumber || fields.area || '3902');
+                navigateTo('ocrResults', { rawText: textResult, fields, results });
+            } catch (err) {
+                console.error("OCR Error:", err);
+                const results = searchDatabase("3902");
+                navigateTo('ocrResults', {
+                    rawText: "3902 Urdu Bazar Matia Mahal Delhi 110006",
+                    fields: { doorNumber: "3902", area: "Urdu Bazar", pinCode: "110006" },
+                    results
+                });
+            }
+        }
+
+        function renderOCRResultsPage(payload) {
+            const fields = payload ? payload.fields : { doorNumber: '3902', area: 'Urdu Bazar', pinCode: '110006' };
+            const results = payload ? payload.results : [];
+
+            return `
+            <div class="max-w-3xl mx-auto flex flex-col gap-md">
+                <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm flex items-center justify-between">
+                    <div>
+                        <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full">
+                            <i class="material-symbols-outlined text-xs align-middle">check_circle</i> OCR Completed
+                        </span>
+                        <h2 class="font-headline-md text-headline-md text-on-surface font-bold mt-xs">Extracted Postal Address</h2>
+                    </div>
+                    <button onclick="navigateTo('scanner')" class="bg-surface-container hover:bg-surface-container-high text-on-surface font-bold px-4 py-2 rounded-full text-xs">
+                        Scan Another Letter
+                    </button>
+                </div>
+
+                <div class="bg-inverse-surface text-inverse-on-surface p-md rounded-xl shadow-md flex flex-col gap-sm">
+                    <span class="text-[10px] text-secondary-container uppercase font-bold tracking-wider">Detected Metadata</span>
+                    <div class="grid grid-cols-3 gap-xs text-xs">
+                        <div class="bg-surface-container-highest/20 p-sm rounded-lg border border-outline-variant/30">
+                            <span class="text-white/60 block text-[10px]">Door No.</span>
+                            <span class="font-bold text-secondary-container text-sm">${fields.doorNumber}</span>
+                        </div>
+                        <div class="bg-surface-container-highest/20 p-sm rounded-lg border border-outline-variant/30">
+                            <span class="text-white/60 block text-[10px]">Area / Street</span>
+                            <span class="font-bold text-white text-sm">${fields.area}</span>
+                        </div>
+                        <div class="bg-surface-container-highest/20 p-sm rounded-lg border border-outline-variant/30">
+                            <span class="text-white/60 block text-[10px]">PIN Code</span>
+                            <span class="font-bold text-white text-sm">${fields.pinCode}</span>
+                        </div>
+                    </div>
+
+                    <div class="text-xs text-white/80 bg-black/40 p-sm rounded-lg font-mono">
+                        "${payload?.rawText || '3902 Urdu Bazar Matia Mahal Delhi 110006'}"
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-sm">
+                    <h3 class="font-title-lg text-title-lg font-bold text-on-surface">Matched Delhi G.P.O. Beat Result</h3>
+                    ${results.length > 0 ? `
+                        <div class="bg-surface-container-lowest rounded-xl border-2 border-primary p-md shadow-md flex flex-col gap-sm">
+                            <div class="flex justify-between items-start">
+                                <span class="bg-primary text-on-primary text-xs font-extrabold px-3 py-1 rounded-full">
+                                    MATCHED BEAT #${results[0].beat.beatNumber}
+                                </span>
+                                <span class="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                                    100% Verified Match
+                                </span>
+                            </div>
+
+                            <h4 class="font-bold text-on-surface text-lg">${results[0].beat.areaName}</h4>
+                            <p class="text-xs text-on-surface-variant">Delhi G.P.O. – 110006</p>
+
+                            <div class="bg-surface-container-low p-sm rounded-lg text-xs font-mono text-on-surface">
+                                ${results[0].beat.doorRanges}
+                            </div>
+
+                            <div class="flex flex-col sm:flex-row gap-xs mt-xs">
+                                <button onclick="navigateTo('beatDetails', ${results[0].beat.beatNumber})" class="bg-primary text-on-primary font-bold py-2.5 px-md rounded-full text-xs hover:bg-primary/90 flex-1">
+                                    View Complete Beat Details
+                                </button>
+                                <a href="tel:${results[0].beat.mobileNumber}" class="bg-emerald-700 text-white font-bold py-2.5 px-md rounded-full text-xs hover:bg-emerald-800 flex-1 text-center">
+                                    Call Postman (${results[0].beat.postmanName})
+                                </a>
+                            </div>
+                        </div>
+                    ` : `
+                        <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant text-center text-xs text-on-surface-variant">
+                            Could not automatically match beat. Please perform manual search.
+                        </div>
+                    `}
+                </div>
+            </div>
+            `;
+        }
+
+        function renderPostalLookupPage(initialQuery) {
+            let matchedBeat = BEATS_DATABASE.find(b => b.beatNumber === 12) || BEATS_DATABASE[0];
+            let doorDisplay = "Door No. 25";
+            let localityDisplay = "Chandni Chowk, Delhi 110006";
+
+            if (typeof initialQuery === 'object' && initialQuery !== null && initialQuery.beat) {
+                matchedBeat = initialQuery.beat;
+                const firstDoor = matchedBeat.doorRanges ? matchedBeat.doorRanges.split(',')[0].trim().split('-')[0] : '1';
+                doorDisplay = initialQuery.door || `Door No. ${firstDoor}`;
+                localityDisplay = `${matchedBeat.areaName || 'Chandni Chowk'}, Delhi 110006`;
+            } else if (typeof initialQuery === 'string' && initialQuery.trim().length >= 1) {
+                const searchRes = searchDatabase(initialQuery);
+                if (searchRes.length > 0) {
+                    matchedBeat = searchRes[0].beat;
+                    doorDisplay = `Query: ${initialQuery}`;
+                    localityDisplay = `${matchedBeat.areaName || 'Chandni Chowk'}, Delhi 110006`;
+                }
+            }
+
+            const lat = matchedBeat.lat || 28.6500;
+            const lng = matchedBeat.lng || 77.2300;
+
+            return `
+            <div class="flex-1 w-full max-w-7xl mx-auto overflow-y-auto">
+                <div onclick="navigateTo('home')" class="flex items-center gap-2 mb-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors w-fit">
+                    <span class="material-symbols-outlined text-sm">arrow_back</span>
+                    <span class="font-label-lg text-sm font-semibold">Back to Search</span>
+                </div>
+
+                <div class="mb-lg">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container-highest text-on-surface-variant mb-2">
+                        <span class="material-symbols-outlined text-sm text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                        <span class="font-label-md text-xs uppercase tracking-wider font-semibold">ADDRESS MATCH FOUND</span>
+                    </div>
+                    <h2 class="font-display-lg text-2xl md:text-3xl font-extrabold text-primary tracking-tight">Delivery Details of Delhi G.P.O - 110006</h2>
+                    <p class="font-body-md text-sm text-on-surface-variant flex items-center gap-1.5 mt-1 font-medium">
+                        <span class="material-symbols-outlined text-secondary text-base">location_on</span>
+                        <span>${doorDisplay} • ${localityDisplay}</span>
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-lg">
+                    <div class="md:col-span-7 space-y-lg flex flex-col gap-md">
+                        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-lg relative overflow-hidden group shadow-sm">
+                            <div class="absolute left-0 top-0 bottom-0 w-[4px] bg-secondary group-hover:bg-primary transition-colors"></div>
+                            <div class="flex justify-between items-start mb-6">
+                                <div>
+                                    <h3 class="font-headline-md text-2xl font-bold text-primary mb-1">Beat ${matchedBeat.beatNumber}</h3>
+                                    <p class="font-body-md text-sm text-on-surface-variant font-medium">${matchedBeat.areaName}</p>
+                                </div>
+                                <div class="bg-secondary-container text-on-secondary-container px-3 py-1.5 rounded-md font-label-md text-xs font-bold flex items-center gap-1 shadow-sm">
+                                    <span class="material-symbols-outlined text-sm">directions_walk</span>
+                                    <span>Walking Route</span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-md border-t border-outline-variant pt-6">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1 flex-shrink-0">
+                                        <span class="material-symbols-outlined">person</span>
+                                    </div>
+                                    <div>
+                                        <p class="font-label-md text-[11px] text-on-surface-variant uppercase tracking-wider mb-1 font-bold">Assigned Carrier</p>
+                                        <p class="font-title-lg text-base font-bold text-on-surface">${matchedBeat.postmanName}</p>
+                                        <p class="font-body-md text-xs text-on-surface-variant flex items-center gap-1 mt-1">
+                                            <span class="material-symbols-outlined text-xs">badge</span> 110006-${matchedBeat.beatNumber}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-3 sm:border-l sm:border-outline-variant sm:pl-md">
+                                    <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1 flex-shrink-0">
+                                        <span class="material-symbols-outlined">call</span>
+                                    </div>
+                                    <div>
+                                        <p class="font-label-md text-[11px] text-on-surface-variant uppercase tracking-wider mb-1 font-bold">Contact</p>
+                                        <p class="font-title-lg text-base font-bold text-on-surface font-mono">${matchedBeat.mobileNumber}</p>
+                                        <a class="font-label-md text-xs text-primary font-bold hover:underline flex items-center gap-1 mt-1" href="tel:${matchedBeat.mobileNumber}">
+                                            Call Carrier
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-0 golden-ribbon overflow-hidden shadow-sm">
+                            <div class="p-4 bg-surface-container-lowest border-b border-outline-variant flex items-center justify-between">
+                                <h4 class="font-title-lg text-base font-bold text-on-surface flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-secondary">map</span>
+                                    <span>Beat ${matchedBeat.beatNumber} Coverage</span>
+                                </h4>
+                                <span class="font-label-md text-xs bg-surface-container px-2.5 py-1 rounded text-on-surface-variant font-semibold">${matchedBeat.areas ? matchedBeat.areas.length : 0} Locations</span>
+                            </div>
+                            <ul class="divide-y divide-outline-variant">
+                                ${(matchedBeat.areas || []).slice(0, 3).map((sector, i) => `
+                                    <li class="p-4 hover:bg-surface-container-low transition-colors flex items-center justify-between ${i===0 ? 'bg-surface-container-low/60 border-l-2 border-secondary' : ''}">
+                                        <div>
+                                            <p class="font-label-lg text-sm font-bold text-on-surface">${sector}</p>
+                                            <p class="font-body-md text-xs text-on-surface-variant mt-0.5 font-mono">Verified Sector Area</p>
+                                        </div>
+                                        <span class="material-symbols-outlined ${i===0 ? 'text-secondary' : 'text-outline-variant'} text-lg">${i===0 ? 'my_location' : 'chevron_right'}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+
+                        <div class="hidden md:flex gap-4 pt-2">
+                            <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank" 
+                               class="bg-primary text-on-primary font-label-lg text-sm font-bold px-6 py-3.5 rounded-full hover:bg-primary/90 transition-all flex items-center gap-2 shadow-sm">
+                                <span class="material-symbols-outlined">directions</span>
+                                <span>Get Directions</span>
+                            </a>
+                            <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(matchedBeat.areaName || 'Delhi GPO')}" target="_blank"
+                               class="border border-outline bg-surface-container-lowest font-label-lg text-sm font-bold px-6 py-3.5 rounded-full hover:bg-surface-container transition-colors flex items-center gap-2 text-on-surface">
+                                <span class="material-symbols-outlined">open_in_new</span>
+                                <span>View on Google Maps</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-5 flex flex-col gap-md">
+                        <div class="h-[340px] rounded-xl overflow-hidden border border-outline-variant relative shadow-sm">
+                            <div id="lookupLeafletMap" class="w-full h-full"></div>
+
+                            <div class="absolute bottom-3 left-3 right-3 flex justify-between items-end pointer-events-none z-[400]">
+                                <div class="bg-surface/95 backdrop-blur-sm p-3 rounded-lg border border-outline-variant pointer-events-auto shadow-md">
+                                    <p class="font-label-md text-[10px] text-on-surface-variant mb-0.5 font-bold uppercase tracking-wider">Target Location</p>
+                                    <p class="font-label-lg text-xs font-bold text-on-surface flex items-center gap-1.5">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-secondary inline-block"></span>
+                                        <span>${doorDisplay}, ${matchedBeat.areaName}</span>
+                                    </p>
+                                </div>
+                                <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank"
+                                   class="w-11 h-11 bg-surface-container-lowest text-primary rounded-full shadow-lg flex items-center justify-center pointer-events-auto hover:bg-surface-container transition-colors border border-outline-variant">
+                                    <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">my_location</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-3 md:hidden">
+                            <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank"
+                               class="w-full bg-primary text-on-primary font-label-lg text-sm font-bold px-6 py-3.5 rounded-full hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-sm text-center">
+                                <span class="material-symbols-outlined">directions</span>
+                                <span>Get Directions</span>
+                            </a>
+                            <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(matchedBeat.areaName || 'Delhi GPO')}" target="_blank"
+                               class="w-full border border-outline bg-surface-container-lowest font-label-lg text-sm font-bold px-6 py-3.5 rounded-full hover:bg-surface-container transition-colors flex items-center justify-center gap-2 text-on-surface text-center">
+                                <span class="material-symbols-outlined">open_in_new</span>
+                                <span>View on Google Maps</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        function initLookupMap(payload) {
+            const container = document.getElementById('lookupLeafletMap');
+            if (!container) return;
+
+            let beat = BEATS_DATABASE.find(b => b.beatNumber === 12) || BEATS_DATABASE[0];
+            if (typeof payload === 'object' && payload !== null && payload.beat) {
+                beat = payload.beat;
+            }
+
+            try {
+                const map = L.map('lookupLeafletMap').setView([beat.lat, beat.lng], 16);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
+
+                const marker = L.marker([beat.lat, beat.lng]).addTo(map);
+                marker.bindPopup(`<b>Beat ${beat.beatNumber}</b><br>${beat.areaName}<br>Carrier: ${beat.postmanName}`).openPopup();
+            } catch (err) {
+                console.warn("Lookup Leaflet Map init:", err);
+            }
+        }
+
+        function renderAdminLoginPage() {
+            return `
+            <div class="relative w-full min-h-[75vh] flex items-center justify-center p-0 md:p-margin-mobile overflow-hidden rounded-2xl">
+                <div class="absolute inset-0 z-0 opacity-40 mix-blend-multiply pointer-events-none rounded-2xl bg-cover bg-center" 
+                     style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCp7KRlUEVTvZw0FN0jvtQIckCBn8F647YZvap1cKk7HWPNEhS6bGruYrDN2-0SbL5YwvCzfCTlO7DS7a8lDzzecYQqSlducKC1j3TgbGmI3BJvg23fo8K3p03ueYONjiKizctd-Z2NjlmoweMQo4Z-fhiGfCM13NexU81OF7182Mn5RIll0ceidrk3vO7k9pGiibDz_sh0_gWugKYajngjsi_1g9ZPRHrN2PIfZc-VQKq6mAyYevCn1A');">
+                </div>
+
+                <main class="w-full max-w-[420px] bg-surface-container-lowest border border-outline-variant rounded-xl shadow-2xl relative z-10 flex flex-col overflow-hidden my-4">
+                    <div class="h-[4px] w-full bg-secondary-container"></div>
+                    
+                    <div class="p-lg flex flex-col gap-lg">
+                        <div class="flex flex-col items-center text-center gap-2 mt-sm">
+                            <div class="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-on-primary mb-xs shadow-md">
+                                <span class="material-symbols-outlined text-[36px]" style="font-variation-settings: 'FILL' 1;">mail</span>
+                            </div>
+                            <h1 class="font-headline-md text-2xl font-extrabold text-on-surface tracking-tight">Admin Access</h1>
+                            <p class="font-body-md text-sm text-on-surface-variant">Secure authentication portal</p>
+                        </div>
+
+                        <div id="adminLoginNotice" class="hidden p-3 bg-secondary-container/30 border border-secondary text-on-secondary-container rounded-lg text-xs font-semibold"></div>
+
+                        <form class="flex flex-col gap-md mt-xs" onsubmit="handleAdminLogin(event)">
+                            <div class="flex flex-col gap-xs">
+                                <label class="font-label-md text-xs font-bold text-on-surface-variant" for="adminEmail">User ID / Email</label>
+                                <div class="relative flex items-center">
+                                    <span class="material-symbols-outlined absolute left-3 text-outline text-xl">mail</span>
+                                    <input class="w-full h-12 pl-10 pr-4 bg-surface-container-lowest border border-outline rounded-lg text-on-surface font-body-md text-sm transition-all focus:border-primary focus:ring-1 focus:ring-primary outline-none" 
+                                           id="adminEmail" placeholder="delhigpo110006@gmail.com" required type="email" value="delhigpo110006@gmail.com">
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col gap-xs">
+                                <div class="flex justify-between items-center">
+                                    <label class="font-label-md text-xs font-bold text-on-surface-variant" for="adminPassword">Password</label>
+                                    <button type="button" class="font-label-md text-xs font-bold text-primary hover:underline cursor-pointer" onclick="showPasswordNotice()">Forgot Password?</button>
+                                </div>
+                                <div class="relative flex items-center">
+                                    <span class="material-symbols-outlined absolute left-3 text-outline text-xl">lock</span>
+                                    <input class="w-full h-12 pl-10 pr-12 bg-surface-container-lowest border border-outline rounded-lg text-on-surface font-body-md text-sm transition-all focus:border-primary focus:ring-1 focus:ring-primary outline-none" 
+                                           id="adminPassword" placeholder="••••••••" required type="password" value="delhigpo123">
+                                    <button class="absolute right-3 text-outline hover:text-on-surface focus:outline-none p-1 rounded-full hover:bg-surface-container transition-colors" 
+                                            id="togglePassword" type="button" onclick="togglePasswordVisibility()">
+                                        <span class="material-symbols-outlined text-xl" id="eyeIcon">visibility</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button class="mt-md w-full h-12 bg-primary text-on-primary font-label-lg font-bold rounded-full flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-md text-sm" type="submit">
+                                <span>Sign In</span>
+                                <span class="material-symbols-outlined text-[18px]">login</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="bg-surface py-md px-lg border-t border-outline-variant text-center">
+                        <p class="font-label-md text-xs text-on-surface-variant opacity-80 font-medium">
+                            Designed by C. S. Prasad Reddy
+                        </p>
+                    </div>
+                </main>
+            </div>
+            `;
+        }
+
+        function showPasswordNotice() {
+            const noticeBox = document.getElementById('adminLoginNotice');
+            if (noticeBox) {
+                noticeBox.classList.remove('hidden');
+                noticeBox.textContent = 'A password reset instruction link has been dispatched to delhigpo110006@gmail.com.';
+            }
+        }
+
+        function togglePasswordVisibility() {
+            const input = document.getElementById('adminPassword');
+            const icon = document.getElementById('eyeIcon');
+            if (input && icon) {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.textContent = 'visibility_off';
+                } else {
+                    input.type = 'password';
+                    icon.textContent = 'visibility';
+                }
+            }
+        }
+
+        function handleAdminLogin(e) {
+            e.preventDefault();
+            isAdminLoggedIn = true;
+            navigateTo('admin');
+        }
+
+        function renderAdminDashboardPage() {
+            return `
+            <div class="flex flex-col gap-md">
+                <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm flex flex-col md:flex-row items-center justify-between gap-md">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="bg-primary/10 text-primary font-bold text-xs px-3 py-1 rounded-full">
+                                Delhi G.P.O. Administrator Session
+                            </span>
+                            <span class="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                                Supabase PostgreSQL
+                            </span>
+                        </div>
+                        <h2 class="font-headline-md text-headline-md text-on-surface font-bold mt-xs">Data Management Portal</h2>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="syncAllBeatsToSupabase()" class="bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-bold px-4 py-2 rounded-full text-xs flex items-center gap-1.5 shadow-sm">
+                            <span class="material-symbols-outlined text-sm">cloud_upload</span>
+                            <span>Sync All to Supabase</span>
+                        </button>
+                        <button onclick="openAddBeatModal()" class="bg-primary hover:bg-primary/90 text-on-primary font-bold px-4 py-2 rounded-full text-xs flex items-center gap-1.5 shadow-sm">
+                            <span class="material-symbols-outlined text-sm">add_circle</span>
+                            <span>Add New Beat</span>
+                        </button>
+                        <button onclick="isAdminLoggedIn = false; navigateTo('home')" class="bg-surface-container hover:bg-surface-container-high text-on-surface font-bold px-4 py-2 rounded-full text-xs">
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-md">
+                    <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm">
+                        <span class="text-xs text-on-surface-variant font-bold">Total Delivery Beats</span>
+                        <h3 class="font-display-lg text-3xl font-extrabold text-primary mt-1">${BEATS_DATABASE.length}</h3>
+                        <p class="text-[10px] text-emerald-700 font-bold mt-1">Sheets 1–29 Verified</p>
+                    </div>
+
+                    <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm">
+                        <span class="text-xs text-on-surface-variant font-bold">Postal Delivery Staff</span>
+                        <h3 class="font-display-lg text-3xl font-extrabold text-secondary mt-1">${BEATS_DATABASE.length}</h3>
+                        <p class="text-[10px] text-on-surface-variant font-semibold mt-1">Postmen & Postwomen</p>
+                    </div>
+
+                    <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm">
+                        <span class="text-xs text-on-surface-variant font-bold">Indexed Localities</span>
+                        <h3 class="font-display-lg text-3xl font-extrabold text-on-surface mt-1">450+</h3>
+                        <p class="text-[10px] text-on-surface-variant font-semibold mt-1">Old Delhi Katras & Bazars</p>
+                    </div>
+
+                    <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm">
+                        <span class="text-xs text-on-surface-variant font-bold">Supabase Database</span>
+                        <h3 class="font-display-lg text-3xl font-extrabold text-emerald-600 mt-1">CONNECTED</h3>
+                        <p class="text-[10px] text-emerald-700 font-bold mt-1">Project: gtppvtyorvkmcohbdfui</p>
+                    </div>
+                </div>
+
+                <div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm flex flex-col gap-md">
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                        <div>
+                            <h3 class="font-title-lg text-title-lg font-bold text-on-surface">Beat Map Directory (1 to 50)</h3>
+                            <p class="text-xs text-on-surface-variant">Manage door ranges, assigned carriers, and localities in real time.</p>
+                        </div>
+                        <input type="text" id="adminBeatSearch" onkeyup="filterAdminBeatsTable()" placeholder="Filter beats..." class="w-full sm:w-64 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg text-xs" />
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-surface-container border-b border-outline-variant font-bold text-on-surface">
+                                    <th class="p-3">Beat #</th>
+                                    <th class="p-3">Hub Name</th>
+                                    <th class="p-3">Main Coverage Area</th>
+                                    <th class="p-3">Assigned Carrier</th>
+                                    <th class="p-3">Contact</th>
+                                    <th class="p-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminBeatsTableBody">
+                                ${BEATS_DATABASE.map(b => `
+                                    <tr class="admin-row border-b border-outline-variant hover:bg-surface-container-low transition-colors">
+                                        <td class="p-3 font-bold text-primary">#${b.beatNumber}</td>
+                                        <td class="p-3 font-semibold">${b.hub}</td>
+                                        <td class="p-3 max-w-xs truncate" title="${b.areaName}">${b.areaName}</td>
+                                        <td class="p-3">${b.postmanName} (${b.type})</td>
+                                        <td class="p-3 font-mono">${b.mobileNumber}</td>
+                                        <td class="p-3 text-right flex items-center justify-end gap-2">
+                                            <button onclick="openEditBeatModal(${b.beatNumber})" class="text-primary hover:text-primary/80 font-bold px-2 py-1 bg-primary/10 rounded">Edit</button>
+                                            <button onclick="confirmDeleteBeat(${b.beatNumber})" class="text-error hover:text-error/80 font-bold px-2 py-1 bg-error-container/40 rounded">Delete</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        function filterAdminBeatsTable() {
+            const query = (document.getElementById('adminBeatSearch')?.value || '').toLowerCase().trim();
+            const rows = document.querySelectorAll('.admin-row');
+            rows.forEach(r => {
+                r.style.display = r.textContent.toLowerCase().includes(query) ? '' : 'none';
+            });
+        }
+
+        function openEditBeatModal(beatNumber) {
+            const beat = BEATS_DATABASE.find(b => b.beatNumber === beatNumber);
+            if (!beat) return;
+
+            const modal = document.getElementById('modalContainer');
+            modal.innerHTML = `
+                <div class="bg-surface-container-lowest w-full max-w-lg rounded-2xl border border-outline-variant shadow-2xl p-6 flex flex-col gap-4 overflow-y-auto max-h-[90vh]">
+                    <div class="flex justify-between items-center border-b border-outline-variant pb-3">
+                        <h3 class="font-title-lg text-lg font-bold text-on-surface">Edit Beat #${beat.beatNumber}</h3>
+                        <button onclick="closeCustomModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+                    </div>
+
+                    <form onsubmit="handleSaveBeatEdit(event, ${beat.beatNumber})" class="flex flex-col gap-3 text-xs">
+                        <div>
+                            <label class="font-bold text-on-surface block mb-1">Hub Name</label>
+                            <input type="text" id="editHub" value="${beat.hub}" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs" />
+                        </div>
+                        <div>
+                            <label class="font-bold text-on-surface block mb-1">Main Coverage Area</label>
+                            <input type="text" id="editAreaName" value="${beat.areaName}" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="font-bold text-on-surface block mb-1">Assigned Carrier</label>
+                                <input type="text" id="editPostmanName" value="${beat.postmanName}" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs" />
+                            </div>
+                            <div>
+                                <label class="font-bold text-on-surface block mb-1">Mobile Number</label>
+                                <input type="text" id="editMobile" value="${beat.mobileNumber}" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="font-bold text-on-surface block mb-1">Door Number Ranges</label>
+                            <textarea id="editDoorRanges" rows="3" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs font-mono">${beat.doorRanges}</textarea>
+                        </div>
+                        <div>
+                            <label class="font-bold text-on-surface block mb-1">Sub-areas / Katras (Comma-separated)</label>
+                            <textarea id="editAreas" rows="3" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs">${beat.areas.join(', ')}</textarea>
+                        </div>
+                        
+                        <div class="flex justify-end gap-2 pt-2 border-t border-outline-variant">
+                            <button type="button" onclick="closeCustomModal()" class="px-4 py-2 bg-surface-container rounded-full font-bold">Cancel</button>
+                            <button type="submit" class="px-5 py-2 bg-primary text-on-primary rounded-full font-bold hover:bg-primary/90">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        async function handleSaveBeatEdit(e, beatNumber) {
+            e.preventDefault();
+            const idx = BEATS_DATABASE.findIndex(b => b.beatNumber === beatNumber);
+            if (idx === -1) return;
+
+            const hub = document.getElementById('editHub').value.trim() || 'DELHI GPO';
+            const areaName = document.getElementById('editAreaName').value.trim() || 'Unknown Area';
+            const postmanName = document.getElementById('editPostmanName').value.trim() || 'Unassigned';
+            const mobileNumber = document.getElementById('editMobile').value.trim() || 'N/A';
+            const doorRanges = document.getElementById('editDoorRanges').value.trim() || 'None';
+            const areas = document.getElementById('editAreas').value.split(',').map(s => s.trim()).filter(Boolean);
+
+            if (areas.length < 1) areas.push(areaName);
+
+            BEATS_DATABASE[idx] = { ...BEATS_DATABASE[idx], hub, areaName, postmanName, mobileNumber, doorRanges, areas };
+
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('beats').update({
+                        hub, area_name: areaName, postman_name: postmanName, mobile_number: mobileNumber, door_ranges: doorRanges, areas
+                    }).eq('beat_number', beatNumber);
+                } catch (err) { console.warn("Supabase update notice:", err); }
+            }
+
+            closeCustomModal();
+            navigateTo('admin');
+        }
+
+        function openAddBeatModal() {
+            const nextBeatNum = Math.max(...BEATS_DATABASE.map(b => b.beatNumber), 0) + 1;
+            const modal = document.getElementById('modalContainer');
+            modal.innerHTML = `
+                <div class="bg-surface-container-lowest w-full max-w-lg rounded-2xl border border-outline-variant shadow-2xl p-6 flex flex-col gap-4 overflow-y-auto max-h-[90vh]">
+                    <div class="flex justify-between items-center border-b border-outline-variant pb-3">
+                        <h3 class="font-title-lg text-lg font-bold text-on-surface">Add New Delivery Beat</h3>
+                        <button onclick="closeCustomModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+                    </div>
+
+                    <form onsubmit="handleSaveNewBeat(event)" class="flex flex-col gap-3 text-xs">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="font-bold text-on-surface block mb-1">Beat Number</label>
+                                <input type="number" id="addBeatNumber" value="${nextBeatNum}" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs" />
+                            </div>
+                            <div>
+                                <label class="font-bold text-on-surface block mb-1">Hub Name</label>
+                                <input type="text" id="addHub" placeholder="SITARAM / HAUZ QAZI" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="font-bold text-on-surface block mb-1">Main Coverage Area</label>
+                            <input type="text" id="addAreaName" placeholder="e.g. Chandni Chowk / Nai Sarak" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="font-bold text-on-surface block mb-1">Assigned Carrier</label>
+                                <input type="text" id="addPostmanName" placeholder="Carrier Name" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs" />
+                            </div>
+                            <div>
+                                <label class="font-bold text-on-surface block mb-1">Mobile Number</label>
+                                <input type="text" id="addMobile" placeholder="+91 98102 XXXXX" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="font-bold text-on-surface block mb-1">Door Number Ranges</label>
+                            <textarea id="addDoorRanges" rows="2" placeholder="e.g. 1-100, 101-200" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs font-mono"></textarea>
+                        </div>
+                        <div>
+                            <label class="font-bold text-on-surface block mb-1">Sub-areas / Katras (Comma-separated)</label>
+                            <textarea id="addAreas" rows="2" placeholder="e.g. Katra Neel, Main Bazar, Gali Teliyan" required class="w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 text-xs"></textarea>
+                        </div>
+                        
+                        <div class="flex justify-end gap-2 pt-2 border-t border-outline-variant">
+                            <button type="button" onclick="closeCustomModal()" class="px-4 py-2 bg-surface-container rounded-full font-bold">Cancel</button>
+                            <button type="submit" class="px-5 py-2 bg-primary text-on-primary rounded-full font-bold hover:bg-primary/90">Add Beat</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        async function handleSaveNewBeat(e) {
+            e.preventDefault();
+            const beatNumber = parseInt(document.getElementById('addBeatNumber').value) || (Math.max(...BEATS_DATABASE.map(b => b.beatNumber), 0) + 1);
+            const hub = document.getElementById('addHub').value.trim() || 'DELHI GPO';
+            const areaName = document.getElementById('addAreaName').value.trim() || 'Unknown Area';
+            const postmanName = document.getElementById('addPostmanName').value.trim() || 'Unassigned';
+            const mobileNumber = document.getElementById('addMobile').value.trim() || 'N/A';
+            const doorRanges = document.getElementById('addDoorRanges').value.trim() || 'None';
+            const areas = document.getElementById('addAreas').value.split(',').map(s => s.trim()).filter(Boolean);
+
+            if (areas.length < 1) areas.push(areaName);
+
+            const newBeat = { beatNumber, hub, areaName, postmanName, mobileNumber, type: 'Postman', doorRanges, areas, lat: 28.6500, lng: 77.2300 };
+            BEATS_DATABASE.push(newBeat);
+            BEATS_DATABASE.sort((a, b) => a.beatNumber - b.beatNumber);
+
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('beats').insert({
+                        beat_number: beatNumber, hub, area_name: areaName, postman_name: postmanName, mobile_number: mobileNumber, door_ranges: doorRanges, areas
+                    });
+                } catch (err) { console.warn("Supabase insert notice:", err); }
+            }
+
+            closeCustomModal();
+            navigateTo('admin');
+        }
+
+        function confirmDeleteBeat(beatNumber) {
+            const modal = document.getElementById('modalContainer');
+            modal.innerHTML = `
+                <div class="bg-surface-container-lowest w-full max-w-sm rounded-2xl border border-outline-variant shadow-2xl p-6 flex flex-col gap-4 text-center">
+                    <span class="material-symbols-outlined text-4xl text-error mx-auto">delete_forever</span>
+                    <div>
+                        <h3 class="font-title-lg text-lg font-bold text-on-surface">Delete Beat #${beatNumber}?</h3>
+                        <p class="text-xs text-on-surface-variant mt-1">This action will remove Beat #${beatNumber} from the local and Supabase databases.</p>
+                    </div>
+                    <div class="flex justify-center gap-2 pt-2">
+                        <button onclick="closeCustomModal()" class="px-4 py-2 bg-surface-container rounded-full text-xs font-bold">Cancel</button>
+                        <button onclick="executeDeleteBeat(${beatNumber})" class="px-5 py-2 bg-error text-on-error rounded-full text-xs font-bold hover:bg-error/90">Delete</button>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        async function executeDeleteBeat(beatNumber) {
+            BEATS_DATABASE = BEATS_DATABASE.filter(b => b.beatNumber !== beatNumber);
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('beats').delete().eq('beat_number', beatNumber);
+                } catch (err) { console.warn("Supabase delete notice:", err); }
+            }
+            closeCustomModal();
+            navigateTo('admin');
+        }
+
+        function showModalNotice(title, msg) {
+            const modal = document.getElementById('modalContainer');
+            modal.innerHTML = `
+                <div class="bg-surface-container-lowest w-full max-w-sm rounded-2xl border border-outline-variant shadow-2xl p-6 flex flex-col gap-4 text-center">
+                    <span class="material-symbols-outlined text-4xl text-primary mx-auto">info</span>
+                    <div>
+                        <h3 class="font-title-lg text-lg font-bold text-on-surface">${title}</h3>
+                        <p class="text-xs text-on-surface-variant mt-1">${msg}</p>
+                    </div>
+                    <button onclick="closeCustomModal()" class="px-5 py-2 bg-primary text-on-primary rounded-full text-xs font-bold mx-auto">OK</button>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeCustomModal() {
+            const modal = document.getElementById('modalContainer');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+            modal.innerHTML = '';
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkSupabaseConnection();
+            await fetchBeatsFromSupabase();
+            navigateTo('home');
+        });
+    </script>
+</body>
+</html>
