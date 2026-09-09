@@ -268,24 +268,23 @@
             }
         }
 
-        /* Mobile Header Title & Subtitle: Perfectly crisp, single-line, zero vertical wrapping */
+        /* Mobile Header Title & Subtitle: Perfectly scaled, full left-to-right visibility, zero clipping */
         .mobile-header-title {
-            font-size: clamp(12px, 3.7vw, 14.5px) !important;
+            font-size: clamp(10.5px, 3.1vw, 12.8px) !important;
             line-height: 1.2 !important;
             font-weight: 900 !important;
-            letter-spacing: -0.01em !important;
+            letter-spacing: -0.02em !important;
             white-space: nowrap !important;
             display: block !important;
             width: 100% !important;
             text-align: left !important;
             margin: 0 !important;
             padding: 0 !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
+            overflow: visible !important;
         }
 
         .mobile-header-sub {
-            font-size: clamp(6.8px, 2.1vw, 8.5px) !important;
+            font-size: clamp(5.8px, 1.75vw, 7.3px) !important;
             line-height: 1.15 !important;
             font-weight: 800 !important;
             letter-spacing: 0.01em !important;
@@ -297,8 +296,7 @@
             color: #0f172a !important;
             margin-top: 1.5px !important;
             padding: 0 !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
+            overflow: visible !important;
         }
 
         .desktop-header-sub {
@@ -444,21 +442,21 @@
     <div id="google_translate_element" style="display:none !important;"></div>
 
     <!-- Mobile Top Header -->
-    <header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-3 xs:px-4 h-16 bg-surface-container-lowest border-t-4 border-secondary border-b border-outline-variant shadow-sm md:hidden">
-        <div class="flex items-center gap-2 xs:gap-2.5 min-w-0 cursor-pointer flex-1" onclick="navigateTo('home')">
-            <div class="w-9 h-9 xs:w-10 xs:h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 shadow-xs border border-primary/20">
-                <span class="material-symbols-outlined text-[20px] xs:text-[22px]" style="font-variation-settings: 'FILL' 1;">mail</span>
+    <header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-2.5 xs:px-3.5 h-16 bg-surface-container-lowest border-t-4 border-secondary border-b border-outline-variant shadow-sm md:hidden">
+        <div class="flex items-center gap-1.5 xs:gap-2 min-w-0 cursor-pointer flex-1" onclick="navigateTo('home')">
+            <div class="w-8 h-8 xs:w-9 xs:h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 shadow-xs border border-primary/20">
+                <span class="material-symbols-outlined text-[18px] xs:text-[20px]" style="font-variation-settings: 'FILL' 1;">mail</span>
             </div>
-            <div class="flex flex-col justify-center min-w-0 flex-1 overflow-hidden leading-tight">
-                <h1 class="mobile-header-title text-primary tracking-tight whitespace-nowrap truncate leading-tight font-black" data-i18n="Beat Map, Delhi G.P.O - 110006">
+            <div class="flex flex-col justify-center min-w-0 flex-1 leading-tight">
+                <h1 class="mobile-header-title text-primary tracking-tight whitespace-nowrap leading-tight font-black" data-i18n="Beat Map, Delhi G.P.O - 110006">
                     Beat Map, Delhi G.P.O - 110006
                 </h1>
-                <span class="mobile-header-sub text-slate-900 uppercase tracking-tight whitespace-nowrap truncate leading-tight block font-extrabold mt-0.5" data-i18n="DEPARTMENT OF POSTS • GOVERNMENT OF INDIA">
+                <span class="mobile-header-sub text-slate-900 uppercase tracking-tight whitespace-nowrap leading-tight block font-extrabold mt-0.5" data-i18n="DEPARTMENT OF POSTS • GOVERNMENT OF INDIA">
                     DEPARTMENT&nbsp;OF&nbsp;POSTS&nbsp;•&nbsp;GOVERNMENT&nbsp;OF&nbsp;INDIA
                 </span>
             </div>
         </div>
-        <div class="flex items-center gap-1 xs:gap-1.5 flex-shrink-0 ml-1.5">
+        <div class="flex items-center gap-1 xs:gap-1.5 flex-shrink-0 ml-1">
             <!-- Language Mode Button -->
             <button onclick="openLanguageModal()" class="relative w-7 h-7 xs:w-8 xs:h-8 rounded-full bg-surface-container flex items-center justify-center border border-outline-variant hover:bg-surface-container-high transition-colors text-on-surface-variant shadow-2xs active:scale-95" title="Change Language">
                 <span class="material-symbols-outlined text-[16px] xs:text-[18px]">translate</span>
