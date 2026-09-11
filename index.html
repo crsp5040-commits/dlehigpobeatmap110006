@@ -268,12 +268,12 @@
             }
         }
 
-        /* Mobile Header Title & Subtitle: Perfectly scaled, equalized left-to-right alignment, zero clipping */
+        /* Mobile Header Title & Subtitle: Perfectly scaled, full left-to-right visibility, zero clipping */
         .mobile-header-title {
-            font-size: clamp(11px, 3.25vw, 13.2px) !important;
-            line-height: 1.22 !important;
+            font-size: clamp(10.5px, 3.1vw, 12.8px) !important;
+            line-height: 1.2 !important;
             font-weight: 900 !important;
-            letter-spacing: -0.015em !important;
+            letter-spacing: -0.02em !important;
             white-space: nowrap !important;
             display: block !important;
             width: 100% !important;
@@ -284,10 +284,10 @@
         }
 
         .mobile-header-sub {
-            font-size: clamp(6.6px, 1.95vw, 8.2px) !important;
-            line-height: 1.2 !important;
+            font-size: clamp(5.8px, 1.75vw, 7.3px) !important;
+            line-height: 1.15 !important;
             font-weight: 800 !important;
-            letter-spacing: 0.025em !important;
+            letter-spacing: 0.01em !important;
             white-space: nowrap !important;
             word-break: keep-all !important;
             display: block !important;
@@ -642,20 +642,6 @@
                 isAdminLoggedIn = true;
             }
         } catch(e) {}
-
-        /* Reliable External Link Opener for Web, Mobile Browsers & Android APK / WebView Wrappers */
-        function openExternalLink(url) {
-            if (!url) return;
-            try {
-                const win = window.open(url, '_blank', 'noopener,noreferrer');
-                if (!win || win.closed || typeof win.closed === 'undefined') {
-                    // Fallback for Android WebView / APK wrapper that restricts window.open popups
-                    window.location.href = url;
-                }
-            } catch (e) {
-                window.location.href = url;
-            }
-        }
 
         async function checkSupabaseAdminSession() {
             const client = getSupabaseClient();
@@ -1237,6 +1223,32 @@
 
         function openBeatMapPDF() {
             window.open("https://gtppvtyorvkmcohbdfui.supabase.co/storage/v1/object/public/Beat%20Map%20of%20Delhi%20G.P.O%20-%20110006/Delhi_GPO_Beat_Map_GPODistance_Neighbours%20(1).pdf", "_blank");
+        }
+
+        function openExternalLink(url) {
+            if (!url) return;
+            try {
+                const win = window.open(url, '_blank', 'noopener,noreferrer');
+                if (!win || win.closed || typeof win.closed === 'undefined') {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        if (document.body.contains(a)) {
+                            document.body.removeChild(a);
+                        }
+                    }, 300);
+                }
+            } catch (err) {
+                try {
+                    window.location.href = url;
+                } catch (e) {
+                    console.warn("External link error:", e);
+                }
+            }
         }
 
         function renderPhoneUI(mobileNumber, postmanName, beatNumber) {
@@ -5374,9 +5386,10 @@
             printWindow.document.close();
         }
 
-        /* High-Definition SVG to PNG Converter for html2canvas to guarantee complete map in PDF download */
+        /* High-Definition SVG to PNG Converter for html2canvas with timeout guard */
         function rasterizeSvgNodeToImage(svgEl) {
             return new Promise((resolve) => {
+                const safetyTimeout = setTimeout(() => resolve(false), 900);
                 try {
                     const width = 345;
                     const height = 490;
@@ -5392,9 +5405,10 @@
 
                     const img = new Image();
                     img.onload = () => {
+                        clearTimeout(safetyTimeout);
                         try {
                             const canvas = document.createElement('canvas');
-                            canvas.width = width * 2; // 2x for sharp print
+                            canvas.width = width * 2;
                             canvas.height = height * 2;
                             const ctx = canvas.getContext('2d');
                             ctx.fillStyle = '#f4f7f2';
@@ -5403,7 +5417,7 @@
                             URL.revokeObjectURL(blobUrl);
 
                             const pngImg = document.createElement('img');
-                            pngImg.src = canvas.toDataURL('image/png', 1.0);
+                            pngImg.src = canvas.toDataURL('image/png', 0.95);
                             pngImg.style.width = '100%';
                             pngImg.style.height = '100%';
                             pngImg.style.display = 'block';
@@ -5419,18 +5433,131 @@
                         }
                     };
                     img.onerror = () => {
+                        clearTimeout(safetyTimeout);
                         URL.revokeObjectURL(blobUrl);
                         resolve(false);
                     };
                     img.src = blobUrl;
                 } catch (err) {
+                    clearTimeout(safetyTimeout);
                     resolve(false);
                 }
             });
         }
 
+        /* Dedicated Mobile PDF Delivery Engine (Bypasses Android DownloadManager Blob URL failures) */
+        async function deliverPdfToUser(pdfBlob, filename, beat) {
+            const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+
+            // 1. Mobile Native Web Share API: Allows saving straight to device/Drive without blob download failure
+            if (isMobile && navigator.canShare) {
+                try {
+                    const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+                    if (navigator.canShare({ files: [file] })) {
+                        closeCustomModal();
+                        await navigator.share({
+                            files: [file],
+                            title: `Beat #${beat.beatNumber} Sheet`,
+                            text: `Delhi G.P.O. Official Beat #${beat.beatNumber} Sheet (${beat.areaName})`
+                        });
+                        return;
+                    }
+                } catch (shareErr) {
+                    if (shareErr.name === 'AbortError') {
+                        closeCustomModal();
+                        return;
+                    }
+                    console.debug("Web Share notice, falling back to direct options:", shareErr);
+                }
+            }
+
+            // 2. Direct browser link click attempt
+            try {
+                const link = document.createElement('a');
+                link.href = pdfUrl;
+                link.download = filename;
+                link.target = '_blank';
+                document.body.appendChild(link);
+                link.click();
+                setTimeout(() => {
+                    if (document.body.contains(link)) document.body.removeChild(link);
+                }, 300);
+            } catch(e) {
+                console.warn("Direct link trigger:", e);
+            }
+
+            // 3. Display instant interactive Ready Modal with Open / View & Download buttons
+            showPdfReadyModal(pdfUrl, filename, beat);
+        }
+
+        function showPdfReadyModal(pdfUrl, filename, beat) {
+            const modal = document.getElementById('modalContainer');
+            if (!modal) return;
+            modal.innerHTML = `
+                <div class="bg-surface-container-lowest w-full max-w-[92vw] sm:max-w-md rounded-2xl sm:rounded-3xl border-2 border-emerald-500/40 shadow-2xl p-4 sm:p-6 flex flex-col gap-3.5 text-center" onclick="event.stopPropagation()">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto shadow-xs border border-emerald-200">
+                        <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                    </div>
+                    <div>
+                        <h3 class="text-sm sm:text-base font-black text-on-surface">Beat #${beat.beatNumber} PDF Ready!</h3>
+                        <p class="text-[11px] font-mono text-emerald-800 font-bold mt-0.5 truncate">${filename}</p>
+                        <p class="text-[10.5px] text-on-surface-variant font-medium mt-1">Official Single-Page A4 Beat Sheet ready to save or view.</p>
+                    </div>
+                    <div class="flex flex-col gap-2 pt-1">
+                        <a href="${pdfUrl}" target="_blank" rel="noopener noreferrer" class="w-full py-2.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 text-decoration-none">
+                            <span class="material-symbols-outlined text-base">visibility</span>
+                            <span>Open / View PDF</span>
+                            <span class="material-symbols-outlined text-xs">open_in_new</span>
+                        </a>
+                        <a href="${pdfUrl}" download="${filename}" class="w-full py-2.5 px-4 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 text-decoration-none">
+                            <span class="material-symbols-outlined text-base">download</span>
+                            <span>Download PDF to Device</span>
+                        </a>
+                        <button onclick="closeCustomModal(); printA4Sheet();" class="w-full py-2 px-4 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-outline-variant transition-all">
+                            <span class="material-symbols-outlined text-base">print</span>
+                            <span>Print / Save as PDF (System Dialog)</span>
+                        </button>
+                    </div>
+                    <div class="pt-1 border-t border-outline-variant/60 flex justify-end">
+                        <button onclick="closeCustomModal()" class="px-4 py-1.5 bg-surface-container text-on-surface-variant hover:text-on-surface rounded-lg text-xs font-bold">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function handlePdfFallback(beat, filename) {
+            const modal = document.getElementById('modalContainer');
+            if (!modal) return;
+            modal.innerHTML = `
+                <div class="bg-surface-container-lowest w-full max-w-[92vw] sm:max-w-md rounded-2xl sm:rounded-3xl border-2 border-primary/30 shadow-2xl p-4 sm:p-6 flex flex-col gap-3 text-center" onclick="event.stopPropagation()">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-900 flex items-center justify-center mx-auto">
+                        <span class="material-symbols-outlined text-2xl">picture_as_pdf</span>
+                    </div>
+                    <div>
+                        <h3 class="text-sm sm:text-base font-black text-on-surface">Print or Save Beat #${beat.beatNumber} Sheet</h3>
+                        <p class="text-[11px] text-on-surface-variant font-medium mt-1">Use the system print dialog to save directly as an official A4 PDF.</p>
+                    </div>
+                    <div class="flex flex-col gap-2 pt-1">
+                        <button onclick="closeCustomModal(); printA4Sheet();" class="w-full py-2.5 px-4 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs">
+                            <span class="material-symbols-outlined text-base">print</span>
+                            <span>Open Print & Save as PDF</span>
+                        </button>
+                    </div>
+                    <div class="pt-1 border-t border-outline-variant/60 flex justify-end">
+                        <button onclick="closeCustomModal()" class="px-4 py-1.5 bg-surface-container text-on-surface-variant rounded-lg text-xs font-bold">Close</button>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
         async function downloadA4PDF(beatNumber) {
-            // Re-read latest settings from localStorage to guarantee 100% up-to-date lock/unlock state
             try {
                 const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
                 if (saved) APP_SETTINGS = { ...APP_SETTINGS, ...JSON.parse(saved) };
@@ -5438,8 +5565,8 @@
 
             const beat = BEATS_DATABASE.find(b => b.beatNumber === beatNumber) || activeBeatDetails || BEATS_DATABASE[0];
             const filename = `Delhi_GPO_110006_Beat_${beat.beatNumber}_Official_A4_Sheet.pdf`;
+            const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
             
-            // Show interactive progress indicator modal
             showModalNotice("Generating A4 PDF", `
                 <div class="flex flex-col items-center gap-2 py-1 text-center">
                     <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -5448,7 +5575,6 @@
                 </div>
             `);
 
-            // Create a dedicated on-screen rendering viewport element for html2canvas
             const renderWrapper = document.createElement('div');
             renderWrapper.id = 'a4_pdf_render_stage';
             renderWrapper.style.position = 'fixed';
@@ -5460,30 +5586,27 @@
             renderWrapper.style.height = '1120px';
             renderWrapper.style.maxHeight = '1120px';
             renderWrapper.style.backgroundColor = '#ffffff';
-            renderWrapper.style.zIndex = '90';
+            renderWrapper.style.zIndex = '99999';
             renderWrapper.style.overflow = 'hidden';
             renderWrapper.style.boxSizing = 'border-box';
             renderWrapper.style.pointerEvents = 'none';
 
-            // Generate clean desktop A4 sheet with isExport = true and fresh lock/unlock status
             renderWrapper.innerHTML = renderOfficialA4SheetHTML(beat, true);
             document.body.appendChild(renderWrapper);
 
-            // Rasterize the SVG into high-res PNG image so html2canvas renders the complete Delivery Zone Map without collapsing
             const svgEl = renderWrapper.querySelector('svg.map-sketch-svg');
             if (svgEl) {
                 await rasterizeSvgNodeToImage(svgEl);
             }
 
-            // Give mobile browser rendering engine 250ms to composite the canvas image and vector lines
             setTimeout(() => {
                 if (typeof html2pdf !== 'undefined') {
                     const opt = {
                         margin: [0, 0, 0, 0],
                         filename: filename,
-                        image: { type: 'jpeg', quality: 1.0 },
+                        image: { type: 'jpeg', quality: 0.98 },
                         html2canvas: { 
-                            scale: 2, 
+                            scale: isMobile ? 1.5 : 2, 
                             useCORS: true, 
                             logging: false,
                             scrollX: 0,
@@ -5497,29 +5620,27 @@
                         pagebreak: { mode: 'avoid-all' }
                     };
 
-                    html2pdf().set(opt).from(renderWrapper).save()
-                        .then(() => {
-                            if (document.body.contains(renderWrapper)) {
-                                document.body.removeChild(renderWrapper);
-                            }
-                            closeCustomModal();
-                        })
-                        .catch((err) => {
-                            console.warn("Direct html2pdf error, fallback to print:", err);
-                            if (document.body.contains(renderWrapper)) {
-                                document.body.removeChild(renderWrapper);
-                            }
-                            closeCustomModal();
-                            printA4Sheet();
-                        });
+                    const worker = html2pdf().set(opt).from(renderWrapper);
+                    worker.toPdf().get('pdf').then(async function(pdf) {
+                        const pdfBlob = pdf.output('blob');
+                        if (document.body.contains(renderWrapper)) {
+                            document.body.removeChild(renderWrapper);
+                        }
+                        await deliverPdfToUser(pdfBlob, filename, beat);
+                    }).catch(function(err) {
+                        console.warn("Direct html2pdf error, fallback to print:", err);
+                        if (document.body.contains(renderWrapper)) {
+                            document.body.removeChild(renderWrapper);
+                        }
+                        handlePdfFallback(beat, filename);
+                    });
                 } else {
                     if (document.body.contains(renderWrapper)) {
                         document.body.removeChild(renderWrapper);
                     }
-                    closeCustomModal();
-                    printA4Sheet();
+                    handlePdfFallback(beat, filename);
                 }
-            }, 250);
+            }, 300);
         }
 
         function renderAdminLoginPage() {
@@ -5594,44 +5715,44 @@
                         </div>
                         <span class="text-[11px] font-bold text-on-surface-variant">Postman, Delhi G.P.O. 110006 • Department of Posts</span>
 
-                        <!-- Official Social Media Icon Buttons (Reliable Touch Launchers for Mobile & APK) -->
-                        <div class="flex items-center justify-center gap-3 pt-2.5">
-                            <!-- WhatsApp Channel Button -->
+                        <!-- Official Social Media Icon Buttons (Uniform Dimensions & Equal Visual Sizing) -->
+                        <div class="flex items-center justify-center gap-3 pt-3">
+                            <!-- WhatsApp Channel -->
                             <button type="button" 
                                onclick="openExternalLink('https://www.whatsapp.com/channel/0029Vb68NgnFcovzyF5HLr2K')" 
-                               class="w-11 h-11 rounded-full bg-[#25D366]/10 hover:bg-[#25D366] text-[#25D366] hover:text-white border border-[#25D366]/30 flex items-center justify-center transition-all duration-200 shadow-2xs active:scale-90 group cursor-pointer" 
+                               class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#25D366]/10 hover:bg-[#25D366] text-[#25D366] hover:text-white border border-[#25D366]/30 flex items-center justify-center transition-all duration-200 shadow-2xs hover:shadow-md active:scale-95 group cursor-pointer flex-shrink-0" 
                                title="WhatsApp Channel: Delhi GPO – 110006">
-                                <svg class="w-6 h-6 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                                <svg class="w-5 h-5 fill-current transition-transform group-hover:scale-110 flex-shrink-0" viewBox="0 0 24 24">
                                     <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.043.072.043.419-.101.824z"/>
                                 </svg>
                             </button>
 
-                            <!-- Facebook Page Button -->
+                            <!-- Facebook Page -->
                             <button type="button" 
                                onclick="openExternalLink('https://www.facebook.com/profile.php?id=61577030457916')" 
-                               class="w-11 h-11 rounded-full bg-[#1877F2]/10 hover:bg-[#1877F2] text-[#1877F2] hover:text-white border border-[#1877F2]/30 flex items-center justify-center transition-all duration-200 shadow-2xs active:scale-90 group cursor-pointer" 
+                               class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1877F2]/10 hover:bg-[#1877F2] text-[#1877F2] hover:text-white border border-[#1877F2]/30 flex items-center justify-center transition-all duration-200 shadow-2xs hover:shadow-md active:scale-95 group cursor-pointer flex-shrink-0" 
                                title="Facebook Page: Delhi GPO – 110006">
-                                <svg class="w-6 h-6 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                                <svg class="w-5 h-5 fill-current transition-transform group-hover:scale-110 flex-shrink-0" viewBox="0 0 24 24">
                                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                                 </svg>
                             </button>
 
-                            <!-- X (Twitter) Button -->
+                            <!-- X (Twitter) -->
                             <button type="button" 
                                onclick="openExternalLink('https://x.com/DELHIGPO110006')" 
-                               class="w-11 h-11 rounded-full bg-slate-900/10 hover:bg-slate-900 text-slate-900 hover:text-white border border-slate-900/30 flex items-center justify-center transition-all duration-200 shadow-2xs active:scale-90 group cursor-pointer" 
+                               class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-900/10 hover:bg-slate-900 text-slate-900 hover:text-white border border-slate-900/30 flex items-center justify-center transition-all duration-200 shadow-2xs hover:shadow-md active:scale-95 group cursor-pointer flex-shrink-0" 
                                title="X: @DELHIGPO110006">
-                                <svg class="w-5 h-5 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                                <svg class="w-5 h-5 fill-current transition-transform group-hover:scale-110 flex-shrink-0" viewBox="0 0 24 24">
                                     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
                                 </svg>
                             </button>
 
-                            <!-- Instagram Button -->
+                            <!-- Instagram -->
                             <button type="button" 
                                onclick="openExternalLink('https://www.instagram.com/delhigpo110006')" 
-                               class="w-11 h-11 rounded-full bg-[#E4405F]/10 hover:bg-gradient-to-tr hover:from-[#f09433] hover:via-[#dc2743] hover:to-[#bc1888] text-[#E4405F] hover:text-white border border-[#E4405F]/30 flex items-center justify-center transition-all duration-200 shadow-2xs active:scale-90 group cursor-pointer" 
+                               class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#E4405F]/10 hover:bg-gradient-to-tr hover:from-[#f09433] hover:via-[#dc2743] hover:to-[#bc1888] text-[#E4405F] hover:text-white border border-[#E4405F]/30 flex items-center justify-center transition-all duration-200 shadow-2xs hover:shadow-md active:scale-95 group cursor-pointer flex-shrink-0" 
                                title="Instagram: @delhigpo110006">
-                                <svg class="w-6 h-6 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                                <svg class="w-5 h-5 fill-current transition-transform group-hover:scale-110 flex-shrink-0" viewBox="0 0 24 24">
                                     <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
                                 </svg>
                             </button>
@@ -5979,44 +6100,44 @@
                         <span class="text-secondary font-extrabold">Government of India</span>
                     </div>
 
-                    <!-- Official Social Media Icon Buttons (Reliable Touch Launchers for Mobile & APK) -->
-                    <div class="flex items-center justify-center gap-3 pt-2.5">
-                        <!-- WhatsApp Channel Button -->
+                    <!-- Official Social Media Icon Buttons (Uniform Dimensions & Equal Visual Sizing) -->
+                    <div class="flex items-center justify-center gap-3 pt-3">
+                        <!-- WhatsApp Channel -->
                         <button type="button" 
                            onclick="openExternalLink('https://www.whatsapp.com/channel/0029Vb68NgnFcovzyF5HLr2K')" 
-                           class="w-11 h-11 rounded-full bg-[#25D366]/10 hover:bg-[#25D366] text-[#25D366] hover:text-white border border-[#25D366]/30 flex items-center justify-center transition-all duration-200 shadow-2xs active:scale-90 group cursor-pointer" 
+                           class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#25D366]/10 hover:bg-[#25D366] text-[#25D366] hover:text-white border border-[#25D366]/30 flex items-center justify-center transition-all duration-200 shadow-2xs hover:shadow-md active:scale-95 group cursor-pointer flex-shrink-0" 
                            title="WhatsApp Channel: Delhi GPO – 110006">
-                            <svg class="w-6 h-6 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 fill-current transition-transform group-hover:scale-110 flex-shrink-0" viewBox="0 0 24 24">
                                 <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.043.072.043.419-.101.824z"/>
                             </svg>
                         </button>
 
-                        <!-- Facebook Page Button -->
+                        <!-- Facebook Page -->
                         <button type="button" 
                            onclick="openExternalLink('https://www.facebook.com/profile.php?id=61577030457916')" 
-                           class="w-11 h-11 rounded-full bg-[#1877F2]/10 hover:bg-[#1877F2] text-[#1877F2] hover:text-white border border-[#1877F2]/30 flex items-center justify-center transition-all duration-200 shadow-2xs active:scale-90 group cursor-pointer" 
+                           class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1877F2]/10 hover:bg-[#1877F2] text-[#1877F2] hover:text-white border border-[#1877F2]/30 flex items-center justify-center transition-all duration-200 shadow-2xs hover:shadow-md active:scale-95 group cursor-pointer flex-shrink-0" 
                            title="Facebook Page: Delhi GPO – 110006">
-                            <svg class="w-6 h-6 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 fill-current transition-transform group-hover:scale-110 flex-shrink-0" viewBox="0 0 24 24">
                                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                             </svg>
                         </button>
 
-                        <!-- X (Twitter) Button -->
+                        <!-- X (Twitter) -->
                         <button type="button" 
                            onclick="openExternalLink('https://x.com/DELHIGPO110006')" 
-                           class="w-11 h-11 rounded-full bg-slate-900/10 hover:bg-slate-900 text-slate-900 hover:text-white border border-slate-900/30 flex items-center justify-center transition-all duration-200 shadow-2xs active:scale-90 group cursor-pointer" 
+                           class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-900/10 hover:bg-slate-900 text-slate-900 hover:text-white border border-slate-900/30 flex items-center justify-center transition-all duration-200 shadow-2xs hover:shadow-md active:scale-95 group cursor-pointer flex-shrink-0" 
                            title="X: @DELHIGPO110006">
-                            <svg class="w-5 h-5 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 fill-current transition-transform group-hover:scale-110 flex-shrink-0" viewBox="0 0 24 24">
                                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
                             </svg>
                         </button>
 
-                        <!-- Instagram Button -->
+                        <!-- Instagram -->
                         <button type="button" 
                            onclick="openExternalLink('https://www.instagram.com/delhigpo110006')" 
-                           class="w-11 h-11 rounded-full bg-[#E4405F]/10 hover:bg-gradient-to-tr hover:from-[#f09433] hover:via-[#dc2743] hover:to-[#bc1888] text-[#E4405F] hover:text-white border border-[#E4405F]/30 flex items-center justify-center transition-all duration-200 shadow-2xs active:scale-90 group cursor-pointer" 
+                           class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#E4405F]/10 hover:bg-gradient-to-tr hover:from-[#f09433] hover:via-[#dc2743] hover:to-[#bc1888] text-[#E4405F] hover:text-white border border-[#E4405F]/30 flex items-center justify-center transition-all duration-200 shadow-2xs hover:shadow-md active:scale-95 group cursor-pointer flex-shrink-0" 
                            title="Instagram: @delhigpo110006">
-                            <svg class="w-6 h-6 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 fill-current transition-transform group-hover:scale-110 flex-shrink-0" viewBox="0 0 24 24">
                                 <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
                             </svg>
                         </button>
@@ -7292,18 +7413,14 @@
             syncBeatsFromSupabase();
             initRealtimeCloudListeners();
 
-            // High-speed optimized background sync (non-blocking, battery-friendly, zero network thrashing)
+            // High-speed background sync fallback for environments with restricted WebSockets (Canvas / Sandboxes)
             setInterval(() => {
-                if (document.visibilityState === 'visible') {
-                    syncSettingsFromSupabase();
-                }
-            }, 12000);
+                syncSettingsFromSupabase();
+            }, 2500);
 
             setInterval(() => {
-                if (document.visibilityState === 'visible') {
-                    syncBeatsFromSupabase();
-                }
-            }, 30000);
+                syncBeatsFromSupabase();
+            }, 5000);
 
             // Instant sync whenever user switches to the app or unlocks their mobile screen
             document.addEventListener('visibilitychange', () => {
