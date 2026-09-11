@@ -5448,16 +5448,69 @@
         /* Dedicated Mobile PDF Delivery Engine (Bypasses Android DownloadManager Blob URL failures) */
         async function deliverPdfToUser(pdfBlob, filename, beat) {
             const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-            const pdfUrl = URL.createObjectURL(pdfBlob);
+            let httpsUrl = null;
+            let blobUrl = null;
 
-            // 1. Mobile Native Web Share API: Allows saving straight to device/Drive without blob download failure
+            // 1. Upload to Supabase Storage to get an authentic HTTPS URL for Android DownloadManager
+            const client = getSupabaseClient();
+            if (client && client.storage) {
+                try {
+                    const storagePath = `beat_sheets/${filename}`;
+                    const { error: uploadErr } = await client.storage
+                        .from('Beat Map of Delhi G.P.O - 110006')
+                        .upload(storagePath, pdfBlob, {
+                            contentType: 'application/pdf',
+                            upsert: true
+                        });
+
+                    if (!uploadErr) {
+                        const { data: urlData } = client.storage
+                            .from('Beat Map of Delhi G.P.O - 110006')
+                            .getPublicUrl(storagePath);
+
+                        if (urlData && urlData.publicUrl) {
+                            httpsUrl = urlData.publicUrl;
+                        }
+                    } else {
+                        console.debug("Supabase PDF storage notice:", uploadErr.message);
+                    }
+                } catch (storageException) {
+                    console.debug("Supabase upload exception:", storageException);
+                }
+            }
+
+            // 2. Direct Download Execution
+            if (httpsUrl) {
+                // Genuine HTTPS URI: Android DownloadManager and APK webviews download this cleanly without blob errors
+                try {
+                    const dlLink = document.createElement('a');
+                    dlLink.href = httpsUrl;
+                    dlLink.download = filename;
+                    dlLink.target = '_blank';
+                    dlLink.rel = 'noopener noreferrer';
+                    document.body.appendChild(dlLink);
+                    dlLink.click();
+                    setTimeout(() => {
+                        if (document.body.contains(dlLink)) document.body.removeChild(dlLink);
+                    }, 500);
+                } catch (dlErr) {
+                    console.warn("Direct download link notice:", dlErr);
+                }
+
+                // Display interactive confirmation modal with direct view and redownload options
+                showPdfReadyModal(httpsUrl, filename, beat, true);
+                return;
+            }
+
+            // 3. Fallback when offline or storage is unreachable
+            // Mobile Web Share API: Saves PDF file directly to device without hitting Android DownloadManager
             if (isMobile && navigator.canShare) {
                 try {
-                    const file = new File([pdfBlob], filename, { type: 'application/pdf' });
-                    if (navigator.canShare({ files: [file] })) {
+                    const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+                    if (navigator.canShare({ files: [pdfFile] })) {
                         closeCustomModal();
                         await navigator.share({
-                            files: [file],
+                            files: [pdfFile],
                             title: `Beat #${beat.beatNumber} Sheet`,
                             text: `Delhi G.P.O. Official Beat #${beat.beatNumber} Sheet (${beat.areaName})`
                         });
@@ -5468,30 +5521,28 @@
                         closeCustomModal();
                         return;
                     }
-                    console.debug("Web Share notice, falling back to direct options:", shareErr);
                 }
             }
 
-            // 2. Direct browser link click attempt
-            try {
-                const link = document.createElement('a');
-                link.href = pdfUrl;
-                link.download = filename;
-                link.target = '_blank';
-                document.body.appendChild(link);
-                link.click();
-                setTimeout(() => {
-                    if (document.body.contains(link)) document.body.removeChild(link);
-                }, 300);
-            } catch(e) {
-                console.warn("Direct link trigger:", e);
+            // Fallback to local blob modal if Web Share / HTTPS are not accessible
+            blobUrl = URL.createObjectURL(pdfBlob);
+            if (!isMobile) {
+                try {
+                    const fallbackLink = document.createElement('a');
+                    fallbackLink.href = blobUrl;
+                    fallbackLink.download = filename;
+                    document.body.appendChild(fallbackLink);
+                    fallbackLink.click();
+                    setTimeout(() => {
+                        if (document.body.contains(fallbackLink)) document.body.removeChild(fallbackLink);
+                    }, 300);
+                } catch (e) {}
             }
 
-            // 3. Display instant interactive Ready Modal with Open / View & Download buttons
-            showPdfReadyModal(pdfUrl, filename, beat);
+            showPdfReadyModal(blobUrl, filename, beat, false);
         }
 
-        function showPdfReadyModal(pdfUrl, filename, beat) {
+        function showPdfReadyModal(pdfUrl, filename, beat, isHttps = false) {
             const modal = document.getElementById('modalContainer');
             if (!modal) return;
             modal.innerHTML = `
@@ -5502,7 +5553,7 @@
                     <div>
                         <h3 class="text-sm sm:text-base font-black text-on-surface">Beat #${beat.beatNumber} PDF Ready!</h3>
                         <p class="text-[11px] font-mono text-emerald-800 font-bold mt-0.5 truncate">${filename}</p>
-                        <p class="text-[10.5px] text-on-surface-variant font-medium mt-1">Official Single-Page A4 Beat Sheet ready to save or view.</p>
+                        <p class="text-[10.5px] text-on-surface-variant font-medium mt-1">Official Single-Page A4 Beat Sheet generated successfully.</p>
                     </div>
                     <div class="flex flex-col gap-2 pt-1">
                         <a href="${pdfUrl}" target="_blank" rel="noopener noreferrer" class="w-full py-2.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 text-decoration-none">
@@ -5516,7 +5567,7 @@
                         </a>
                         <button onclick="closeCustomModal(); printA4Sheet();" class="w-full py-2 px-4 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-outline-variant transition-all">
                             <span class="material-symbols-outlined text-base">print</span>
-                            <span>Print / Save as PDF (System Dialog)</span>
+                            <span>Print / Save as PDF</span>
                         </button>
                     </div>
                     <div class="pt-1 border-t border-outline-variant/60 flex justify-end">
@@ -5567,6 +5618,8 @@
             const filename = `Delhi_GPO_110006_Beat_${beat.beatNumber}_Official_A4_Sheet.pdf`;
             const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
             
+            // Prevent viewport scrolling and show centered high-priority loading modal
+            document.body.style.overflow = 'hidden';
             showModalNotice("Generating A4 PDF", `
                 <div class="flex flex-col items-center gap-2 py-1 text-center">
                     <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -5575,6 +5628,7 @@
                 </div>
             `);
 
+            // Isolated background rendering stage kept beneath the full-screen modal
             const renderWrapper = document.createElement('div');
             renderWrapper.id = 'a4_pdf_render_stage';
             renderWrapper.style.position = 'fixed';
@@ -5586,7 +5640,7 @@
             renderWrapper.style.height = '1120px';
             renderWrapper.style.maxHeight = '1120px';
             renderWrapper.style.backgroundColor = '#ffffff';
-            renderWrapper.style.zIndex = '99999';
+            renderWrapper.style.zIndex = '10'; // Kept behind the modal (modalContainer is z-[100])
             renderWrapper.style.overflow = 'hidden';
             renderWrapper.style.boxSizing = 'border-box';
             renderWrapper.style.pointerEvents = 'none';
@@ -5626,18 +5680,21 @@
                         if (document.body.contains(renderWrapper)) {
                             document.body.removeChild(renderWrapper);
                         }
+                        document.body.style.overflow = '';
                         await deliverPdfToUser(pdfBlob, filename, beat);
                     }).catch(function(err) {
                         console.warn("Direct html2pdf error, fallback to print:", err);
                         if (document.body.contains(renderWrapper)) {
                             document.body.removeChild(renderWrapper);
                         }
+                        document.body.style.overflow = '';
                         handlePdfFallback(beat, filename);
                     });
                 } else {
                     if (document.body.contains(renderWrapper)) {
                         document.body.removeChild(renderWrapper);
                     }
+                    document.body.style.overflow = '';
                     handlePdfFallback(beat, filename);
                 }
             }, 300);
