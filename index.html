@@ -1394,7 +1394,18 @@
         }
 
         function openBeatMapPDF() {
-            window.open("https://gtppvtyorvkmcohbdfui.supabase.co/storage/v1/object/public/Beat%20Map%20of%20Delhi%20G.P.O%20-%20110006/Delhi_GPO_Beat_Map_GPODistance_Neighbours%20(1).pdf", "_blank");
+            const masterPdfUrl = "https://gtppvtyorvkmcohbdfui.supabase.co/storage/v1/object/public/Beat%20Map%20of%20Delhi%20G.P.O%20-%20110006/Delhi_GPO_Beat_Map_Updated_54pages_sketch_v3.pdf";
+            fetch(masterPdfUrl, { method: 'HEAD' })
+                .then(resp => {
+                    if (resp && resp.ok) {
+                        openExternalLink(masterPdfUrl);
+                    } else {
+                        downloadRoughMapPDF();
+                    }
+                })
+                .catch(() => {
+                    downloadRoughMapPDF();
+                });
         }
 
         function openExternalLink(url) {
@@ -4388,7 +4399,6 @@
             const imgData = canvas.toDataURL('image/png', 0.96);
 
             if (isLandscape) {
-                // Symmetrical centered fit on A4 Landscape
                 const margin = 5;
                 const availW = pageW - margin * 2;
                 const availH = pageH - margin * 2;
@@ -4399,7 +4409,6 @@
                 const drawY = (pageH - drawH) / 2;
                 doc.addImage(imgData, 'PNG', drawX, drawY, drawW, drawH, undefined, 'FAST');
             } else {
-                // Symmetrical A4 Portrait fit with equal Left/Right & Top/Bottom margins
                 const padX = 4;
                 const padY = 4;
                 const availW = pageW - padX * 2;
@@ -4603,15 +4612,91 @@
         let _activePdfDownloadState = null;
 
         function clearActivePdfDownloadState() {
-            if (_activePdfDownloadState && _activePdfDownloadState.blobUrl) {
+            if (_activePdfDownloadState && _activePdfDownloadState.blobUrl && _activePdfDownloadState.blobUrl.startsWith('blob:')) {
                 try { URL.revokeObjectURL(_activePdfDownloadState.blobUrl); } catch (e) {}
             }
             _activePdfDownloadState = null;
         }
 
-        function triggerDirectPdfDownload(pdfBlob, filename) {
-            const blobUrl = URL.createObjectURL(pdfBlob);
+        function blobToBase64DataUri(blob) {
+            return new Promise((resolve) => {
+                try {
+                    if (!blob) return resolve('');
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+                    reader.onerror = () => resolve('');
+                    reader.readAsDataURL(blob);
+                } catch (e) {
+                    resolve('');
+                }
+            });
+        }
+
+        function isAndroidDevice() {
+            return /Android/i.test(navigator.userAgent || '');
+        }
+
+        async function getSafeDownloadUrl(pdfBlob, preferredHttpsUrl = null) {
+            if (preferredHttpsUrl && /^https?:\/\//i.test(preferredHttpsUrl)) {
+                return preferredHttpsUrl;
+            }
+            // On Android, never trigger <a download="blob:..."> directly because Android DownloadManager rejects blob: URIs
+            if (isAndroidDevice()) {
+                const dataUri = await blobToBase64DataUri(pdfBlob);
+                if (dataUri) return dataUri;
+            }
             try {
+                return URL.createObjectURL(pdfBlob);
+            } catch (e) {
+                return await blobToBase64DataUri(pdfBlob);
+            }
+        }
+
+        function triggerDirectPdfDownload(pdfBlob, filename, preferredHttpsUrl = null) {
+            const isAndroid = isAndroidDevice();
+            if (preferredHttpsUrl && /^https?:\/\//i.test(preferredHttpsUrl)) {
+                try {
+                    const a = document.createElement('a');
+                    a.href = preferredHttpsUrl;
+                    a.download = filename;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        if (document.body.contains(a)) document.body.removeChild(a);
+                    }, 500);
+                } catch (e) {}
+                return preferredHttpsUrl;
+            }
+
+            // On Android, convert PDF Blob to data:application/pdf;base64,... so we never pass a blob: URL to Android DownloadManager
+            if (isAndroid) {
+                blobToBase64DataUri(pdfBlob).then((dataUri) => {
+                    if (!dataUri) return;
+                    try {
+                        const a = document.createElement('a');
+                        a.href = dataUri;
+                        a.download = filename;
+                        a.rel = 'noopener noreferrer';
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(() => {
+                            if (document.body.contains(a)) document.body.removeChild(a);
+                        }, 500);
+                    } catch (e) {}
+                    if (_activePdfDownloadState && _activePdfDownloadState.filename === filename) {
+                        _activePdfDownloadState.blobUrl = dataUri;
+                        const dlAnchor = document.getElementById('pdfModalDirectDownloadLink');
+                        if (dlAnchor) dlAnchor.href = dataUri;
+                    }
+                });
+                return '';
+            }
+
+            let blobUrl = '';
+            try {
+                blobUrl = URL.createObjectURL(pdfBlob);
                 const a = document.createElement('a');
                 a.href = blobUrl;
                 a.download = filename;
@@ -4636,22 +4721,30 @@
                         title: title || filename,
                         text: `Delhi G.P.O. 110006 • ${title || filename}`
                     });
+                } else if (typeof window._activePdfPrintFallback === 'function') {
+                    window._activePdfPrintFallback();
                 }
-            } catch (e) {}
+            } catch (e) {
+                if (typeof window._activePdfPrintFallback === 'function') {
+                    window._activePdfPrintFallback();
+                }
+            }
         }
 
-        function showUniversalPdfReadyModal({ title, subtitle, filename, pdfBlob, previewDataUrl, onPrintFallback }) {
+        function showUniversalPdfReadyModal({ title, subtitle, filename, pdfBlob, previewDataUrl, onPrintFallback, httpsUrl = null }) {
             clearActivePdfDownloadState();
-            const blobUrl = triggerDirectPdfDownload(pdfBlob, filename);
-            _activePdfDownloadState = { blob: pdfBlob, blobUrl, filename, title };
+            const isAndroid = isAndroidDevice();
+            const activeUrl = triggerDirectPdfDownload(pdfBlob, filename, httpsUrl);
+            _activePdfDownloadState = { blob: pdfBlob, blobUrl: activeUrl, filename, title };
 
             let supportsNativeFileShare = false;
             try {
-                if (navigator.canShare) {
-                    const testFile = new File([pdfBlob], filename, { type: 'application/pdf' });
-                    supportsNativeFileShare = navigator.canShare({ files: [testFile] });
+                if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [new File([pdfBlob], filename, { type: 'application/pdf' })] }))) {
+                    supportsNativeFileShare = true;
                 }
-            } catch (e) {}
+            } catch (e) {
+                supportsNativeFileShare = Boolean(navigator.share);
+            }
 
             window._activePdfPrintFallback = onPrintFallback || null;
 
@@ -4683,17 +4776,27 @@
                     </div>
 
                     <div class="flex flex-col gap-2">
-                        <a href="${blobUrl}" download="${escapeHTML(filename)}" class="w-full py-2.5 px-4 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 text-decoration-none">
-                            <span class="material-symbols-outlined text-base">download</span>
-                            <span>Download PDF to Device</span>
-                        </a>
-
-                        ${supportsNativeFileShare ? `
-                            <button type="button" onclick="shareActivePdfOnDevice()" class="w-full py-2.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer">
-                                <span class="material-symbols-outlined text-base">ios_share</span>
-                                <span>Save / Share PDF on Mobile</span>
+                        ${isAndroid && !httpsUrl ? `
+                            <button type="button" onclick="shareActivePdfOnDevice()" class="w-full py-2.5 px-4 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer">
+                                <span class="material-symbols-outlined text-base">download</span>
+                                <span>Save / Share PDF to Android Device</span>
                             </button>
-                        ` : ''}
+                            <a id="pdfModalDirectDownloadLink" href="${activeUrl || '#'}" download="${escapeHTML(filename)}" class="w-full py-2 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 text-decoration-none">
+                                <span class="material-symbols-outlined text-base">picture_as_pdf</span>
+                                <span>Direct PDF File Download</span>
+                            </a>
+                        ` : `
+                            <a id="pdfModalDirectDownloadLink" href="${activeUrl || '#'}" download="${escapeHTML(filename)}" target="_blank" rel="noopener noreferrer" class="w-full py-2.5 px-4 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 text-decoration-none">
+                                <span class="material-symbols-outlined text-base">download</span>
+                                <span>Download PDF to Device</span>
+                            </a>
+                            ${supportsNativeFileShare ? `
+                                <button type="button" onclick="shareActivePdfOnDevice()" class="w-full py-2.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer">
+                                    <span class="material-symbols-outlined text-base">ios_share</span>
+                                    <span>Save / Share PDF on Mobile</span>
+                                </button>
+                            ` : ''}
+                        `}
 
                         <div class="grid grid-cols-2 gap-2">
                             <button type="button" onclick="const box = document.getElementById('pdfInlinePreviewWrap'); if(box) box.classList.toggle('hidden');" class="py-2 px-3 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant rounded-xl text-xs font-black flex items-center justify-center gap-1 active:scale-95 cursor-pointer">
@@ -8295,14 +8398,26 @@
         /* High-Definition SVG to PNG Converter for html2canvas with timeout guard */
         function rasterizeSvgNodeToImage(svgEl) {
             return new Promise((resolve) => {
-                const safetyTimeout = setTimeout(() => resolve(false), 900);
+                const safetyTimeout = setTimeout(() => resolve(false), 1400);
                 try {
-                    const width = 345;
-                    const height = 490;
+                    const rect = svgEl.getBoundingClientRect ? svgEl.getBoundingClientRect() : { width: 345, height: 490 };
+                    const width = Math.max(260, Math.round(rect.width || 345));
+                    const height = Math.max(360, Math.round(rect.height || 490));
                     const clonedSvg = svgEl.cloneNode(true);
                     clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
                     clonedSvg.setAttribute('width', width);
                     clonedSvg.setAttribute('height', height);
+                    if (!clonedSvg.getAttribute('viewBox')) {
+                        clonedSvg.setAttribute('viewBox', '0 0 360 480');
+                    }
+
+                    // Resolve CSS paint-order / fill attributes cleanly inside serialized SVG for canvas rasterization
+                    const allTexts = clonedSvg.querySelectorAll('text');
+                    allTexts.forEach(t => {
+                        if (!t.getAttribute('font-family')) {
+                            t.setAttribute('font-family', 'Inter, Arial, Helvetica, sans-serif');
+                        }
+                    });
 
                     const xml = new XMLSerializer().serializeToString(clonedSvg);
                     const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
@@ -8313,9 +8428,10 @@
                     img.onload = () => {
                         clearTimeout(safetyTimeout);
                         try {
+                            const outScale = 2;
                             const canvas = document.createElement('canvas');
-                            canvas.width = width * 2;
-                            canvas.height = height * 2;
+                            canvas.width = width * outScale;
+                            canvas.height = height * outScale;
                             const ctx = canvas.getContext('2d');
                             ctx.fillStyle = '#f4f7f2';
                             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -8323,7 +8439,7 @@
                             URL.revokeObjectURL(blobUrl);
 
                             const pngImg = document.createElement('img');
-                            pngImg.src = canvas.toDataURL('image/png', 0.95);
+                            pngImg.src = canvas.toDataURL('image/png', 0.96);
                             pngImg.style.width = '100%';
                             pngImg.style.height = '100%';
                             pngImg.style.display = 'block';
@@ -8621,20 +8737,19 @@
             const beat = BEATS_DATABASE.find(b => b.beatNumber === beatNumber) || activeBeatDetails || BEATS_DATABASE[0];
             const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
-            // Capture inside a generous 1060x820 landscape-2col canvas so the full two-column sheet + map + borders fit cleanly
             const renderHost = document.createElement('div');
             renderHost.id = 'a4ExportRenderHost';
             renderHost.style.position = 'fixed';
             renderHost.style.top = '0';
             renderHost.style.left = '0';
             renderHost.style.width = '1060px';
-            renderHost.style.height = '820px';
+            renderHost.style.height = '860px';
             renderHost.style.margin = '0';
             renderHost.style.padding = '0';
             renderHost.style.backgroundColor = '#ffffff';
             renderHost.style.zIndex = '200';
             renderHost.style.overflow = 'visible';
-            renderHost.style.opacity = '0.01';
+            renderHost.style.opacity = '1';
             renderHost.style.boxSizing = 'border-box';
             renderHost.style.pointerEvents = 'none';
 
@@ -8647,7 +8762,6 @@
             renderWrapper.style.backgroundColor = '#ffffff';
             renderWrapper.style.boxSizing = 'border-box';
 
-            // Use the exact rendered two-column sheet structure matching the uploaded reference PDF
             const rawTwoColHtml = renderOfficialA4SheetHTML(beat, false);
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = rawTwoColHtml;
@@ -8663,6 +8777,8 @@
                 sheetNode.style.boxShadow = 'none';
                 const leftCol = sheetNode.querySelector('.a4-left-col');
                 const rightCol = sheetNode.querySelector('.a4-right-col');
+                const mapBox = sheetNode.querySelector('.map-svg-container');
+                const mapSvg = sheetNode.querySelector('svg.map-sketch-svg');
                 if (leftCol) {
                     leftCol.style.flex = '0 0 56%';
                     leftCol.style.width = '56%';
@@ -8673,6 +8789,19 @@
                     rightCol.style.width = '42%';
                     rightCol.style.maxWidth = '42%';
                 }
+                if (mapBox) {
+                    mapBox.style.height = '510px';
+                    mapBox.style.minHeight = '510px';
+                    mapBox.style.maxHeight = '510px';
+                    mapBox.style.width = '100%';
+                }
+                if (mapSvg) {
+                    mapSvg.setAttribute('width', '410');
+                    mapSvg.setAttribute('height', '510');
+                    mapSvg.style.width = '100%';
+                    mapSvg.style.height = '510px';
+                    mapSvg.style.minHeight = '510px';
+                }
                 renderWrapper.appendChild(sheetNode);
             } else {
                 renderWrapper.innerHTML = rawTwoColHtml;
@@ -8682,16 +8811,15 @@
             document.body.appendChild(renderHost);
 
             try {
-                // Convert SVG maps to crisp PNGs so every road, label, pin, and distance card renders cleanly
                 const svgNodes = Array.from(renderWrapper.querySelectorAll('svg'));
                 for (const svgNode of svgNodes) {
                     await rasterizeSvgNodeToImage(svgNode);
                 }
 
                 await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-                await new Promise(r => setTimeout(r, 140));
+                await new Promise(r => setTimeout(r, 160));
 
-                const measuredH = Math.max(760, Math.ceil(renderWrapper.getBoundingClientRect().height + 28));
+                const measuredH = Math.max(780, Math.ceil(renderWrapper.getBoundingClientRect().height + 28));
                 renderHost.style.height = `${measuredH}px`;
 
                 const renderOnceWithOptions = async (opts) => {
@@ -8788,10 +8916,36 @@
         }
 
         function saveFileCrossPlatform(blob, filename, mimeType, titleText) {
-            const isAndroidWebView = /Android/i.test(navigator.userAgent) && (/wv\)/i.test(navigator.userAgent) || !window.chrome);
-            const url = URL.createObjectURL(blob);
+            const isAndroid = isAndroidDevice();
+            const isAndroidWebView = isAndroid && (/wv\)/i.test(navigator.userAgent) || !window.chrome);
 
-            // Standard direct download works on PC Chrome/Edge/Firefox, Android Chrome, and iOS Safari
+            if (isAndroid) {
+                if (navigator.share) {
+                    try {
+                        const fileObj = new File([blob], filename, { type: mimeType });
+                        if (!navigator.canShare || navigator.canShare({ files: [fileObj] })) {
+                            navigator.share({ files: [fileObj], title: titleText }).catch(() => {});
+                        }
+                    } catch (e) {}
+                }
+                blobToBase64DataUri(blob).then((dataUri) => {
+                    if (!dataUri) return;
+                    try {
+                        const link = document.createElement('a');
+                        link.href = dataUri;
+                        link.download = filename;
+                        link.rel = 'noopener noreferrer';
+                        document.body.appendChild(link);
+                        link.click();
+                        setTimeout(() => {
+                            if (document.body.contains(link)) document.body.removeChild(link);
+                        }, 500);
+                    } catch (e) {}
+                });
+                return;
+            }
+
+            const url = URL.createObjectURL(blob);
             try {
                 const link = document.createElement('a');
                 link.href = url;
@@ -8804,7 +8958,6 @@
                 }, 500);
             } catch (e) {}
 
-            // On Android APK WebViews where <a download> blob URLs are ignored, also offer native Share/Save fallback
             if (isAndroidWebView && navigator.canShare) {
                 try {
                     const fileObj = new File([blob], filename, { type: mimeType });
